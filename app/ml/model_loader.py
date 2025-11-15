@@ -1,8 +1,7 @@
-import tensorflow as tf
-from tensorflow import keras
 from app.config import settings
 import os
 import logging
+from contextlib import redirect_stdout, redirect_stderr
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +37,15 @@ def load_model():
         raise FileNotFoundError(f"Model file not found at {model_path}")
     
     logger.info(f"Loading model from {model_path}")
-    _model = keras.models.load_model(model_path)
+    # Silence any stdout/stderr spam emitted by TensorFlow/Keras during load
+    fnull = open(os.devnull, 'w')
+    try:
+        with redirect_stdout(fnull), redirect_stderr(fnull):
+            import keras  # Delayed import inside silenced context (Keras 3)
+            # Load without compiling to avoid extra optimizer/metrics config logs
+            _model = keras.models.load_model(model_path, compile=False)
+    finally:
+        fnull.close()
     logger.info("Model loaded successfully")
     
     return _model
