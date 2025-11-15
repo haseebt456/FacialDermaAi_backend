@@ -1,0 +1,115 @@
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+import os
+import logging
+
+from app.config import settings
+from app.db.mongo import connect_to_mongo, close_mongo_connection
+from app.ml.model_loader import load_model
+from app.middleware.logging import RequestLoggingMiddleware
+from app.auth.routes import router as auth_router
+from app.users.routes import router as users_router
+from app.predictions.routes import router as predictions_router
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Application lifespan manager
+    Handles startup and shutdown events
+    """
+    # Startup
+    logger.info("Starting FacialDerma AI Backend...")
+    
+    # Connect to MongoDB
+    await connect_to_mongo()
+    
+    # Create uploads directory
+    uploads_dir = "uploads"
+    if not os.path.exists(uploads_dir):
+        os.makedirs(uploads_dir)
+        logger.info(f"Created uploads directory: {uploads_dir}")
+    
+    # Load ML model
+    try:
+        load_model()
+        logger.info("ML model loaded successfully")
+    except FileNotFoundError as e:
+        logger.warning(f"Model file not found: {str(e)}")
+        logger.warning("The /api/predictions/predict endpoint will fail until model is added")
+    except Exception as e:
+        logger.error(f"Failed to load model: {str(e)}")
+    
+    logger.info(f"Application started on port {settings.PORT}")
+    
+    yield
+    
+    # Shutdown
+    logger.info("Shutting down FacialDerma AI Backend...")
+    await close_mongo_connection()
+    logger.info("Application shut down successfully")
+
+
+# Create FastAPI app
+app = FastAPI(
+    title="FacialDerma AI Backend",
+    description="Production-ready FastAPI backend for facial dermatology AI diagnosis",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[settings.ORIGIN] if settings.ORIGIN != "*" else ["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Add request logging middleware
+app.add_middleware(RequestLoggingMiddleware)
+
+# Include routers
+app.include_router(auth_router)
+app.include_router(users_router)
+app.include_router(predictions_router)
+
+# Mount static files for /uploads
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+
+@app.get("/", response_class=PlainTextResponse)
+async def health_check():
+    """Health check endpoint"""
+    return "FacialDerma AI Backend Running!"
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Global exception handler for unhandled errors"""
+    logger.error(f"Unhandled exception: {str(exc)}", exc_info=True)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"error": "Internal server error"}
+    )
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=settings.PORT,
+        reload=True
+    )
