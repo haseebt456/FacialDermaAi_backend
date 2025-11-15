@@ -1,15 +1,25 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from app.config import settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Global MongoDB client
-mongo_client: AsyncIOMotorClient = None
+mongo_client = None
 
 
 async def connect_to_mongo():
     """Initialize MongoDB connection"""
     global mongo_client
-    mongo_client = AsyncIOMotorClient(settings.MONGO_URI)
-    print(f"Connected to MongoDB at {settings.MONGO_URI}")
+    try:
+        mongo_client = AsyncIOMotorClient(settings.MONGO_URI)
+        # Verify connection by pinging the database
+        await mongo_client.admin.command('ping')
+        logger.info("Successfully connected to MongoDB")
+        print(f"Connected to MongoDB at {settings.MONGO_URI}")
+    except Exception as e:
+        logger.error(f"Failed to connect to MongoDB: {str(e)}")
+        raise ConnectionError(f"Could not connect to MongoDB: {str(e)}")
 
 
 async def close_mongo_connection():
