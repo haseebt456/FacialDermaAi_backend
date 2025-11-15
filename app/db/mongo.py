@@ -32,7 +32,7 @@ async def close_mongo_connection():
 
 def get_database():
     """Get the database instance"""
-    return mongo_client.get_default_database()
+    return mongo_client[settings.DB_NAME]
 
 
 def get_users_collection():

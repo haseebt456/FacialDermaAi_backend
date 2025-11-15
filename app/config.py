@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     
     PORT: int = 5000
     MONGO_URI: str
+    DB_NAME: str = "facialderma_db"
     JWT_SECRET: str
     EMAIL_USER: str
     EMAIL_PASS: str
