@@ -65,17 +65,21 @@ async def signup(signup_data: SignupRequest):
         return {"message": "User registered successfully"}
         
     except ValidationError as e:
-        # Handle validation errors
+        # Handle validation errors - show actual validation message
+        error_msg = str(e.errors()[0]['msg']) if e.errors() else "Validation error"
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": "All fields are required"}
+            detail={"error": error_msg}
         )
     except HTTPException:
         raise
     except Exception as e:
+        # Log the actual error for debugging
+        import logging
+        logging.error(f"Signup error: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": "All fields are required"}
+            detail={"error": str(e) if str(e) else "All fields are required"}
         )
 
 
