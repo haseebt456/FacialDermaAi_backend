@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from app.users.schemas import UserMeResponse
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from typing import Optional
+from app.users.schemas import UserMeResponse, DermatologistSummary, DermatologistListResponse
 from app.deps.auth import get_current_user
+from app.db.mongo import get_users_collection
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -18,4 +20,59 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         username=current_user["username"],
         email=current_user["email"],
         role=current_user["role"]
+    )
+
+
+@router.get("/dermatologists", response_model=DermatologistListResponse)
+async def list_dermatologists(
+    q: Optional[str] = Query(None, description="Search by username or email"),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    List all dermatologists in the system.
+    
+    Requires: Any authenticated user
+    
+    Query params:
+        q: Optional search string (filters by username or email prefix)
+        limit: Max results (1-100, default 50)
+        offset: Skip count for pagination
+    
+    Returns:
+        200: Paginated list of dermatologists
+    """
+    collection = get_users_collection()
+    
+    # Build query
+    query = {"role": "dermatologist"}
+    
+    if q:
+        # Case-insensitive prefix search on username or email
+        query["$or"] = [
+            {"username": {"$regex": f"^{q}", "$options": "i"}},
+            {"email": {"$regex": f"^{q}", "$options": "i"}}
+        ]
+    
+    # Count total
+    total = await collection.count_documents(query)
+    
+    # Fetch paginated results
+    cursor = collection.find(query, {"password": 0}).sort("createdAt", -1).skip(offset).limit(limit)
+    dermatologists = await cursor.to_list(length=limit)
+    
+    return DermatologistListResponse(
+        dermatologists=[
+            DermatologistSummary(
+                id=str(d["_id"]),
+                username=d["username"],
+                email=d["email"],
+                createdAt=d["createdAt"]
+            )
+            for d in dermatologists
+        ],
+        total=total,
+        limit=limit,
+        offset=offset
     )
