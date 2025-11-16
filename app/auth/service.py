@@ -54,7 +54,11 @@ def decode_token(token: str) -> Optional[dict]:
 async def get_user_by_email(email: str):
     """Find user by email (case-insensitive)"""
     users = get_users_collection()
-    user = await users.find_one({"email": email.lower()})
+    email_lower = email.lower()
+    # Try emailLower first (indexed), fallback to email for older records
+    user = await users.find_one({"emailLower": email_lower})
+    if not user:
+        user = await users.find_one({"email": email_lower})
     return user
 
 
@@ -79,11 +83,15 @@ async def create_user(role: str, username: str, email: str, password: str):
     """Create a new user in the database"""
     users = get_users_collection()
     
+    email_lower = email.lower()
+    
     user_doc = {
         "role": role,
         "username": username,
-        "email": email.lower(),
-        "password": hash_password(password)
+        "email": email_lower,
+        "emailLower": email_lower,  # For unique index
+        "password": hash_password(password),
+        "createdAt": datetime.utcnow()
     }
     
     result = await users.insert_one(user_doc)
