@@ -42,6 +42,3 @@ uploads/
 .DS_Store
 Thumbs.db
 
-# Models (if large)
-*.keras
-*.h5
