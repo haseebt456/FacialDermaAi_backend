@@ -26,12 +26,14 @@ except Exception:
     pass
 
 from app.config import settings
-from app.db.mongo import connect_to_mongo, close_mongo_connection
+from app.db.mongo import connect_to_mongo, close_mongo_connection, ensure_indexes
 from app.ml.model_loader import load_model
 from app.middleware.logging import RequestLoggingMiddleware
 from app.auth.routes import router as auth_router
 from app.users.routes import router as users_router
 from app.predictions.routes import router as predictions_router
+from app.review_requests.routes import router as review_requests_router
+from app.notifications.routes import router as notifications_router
 
 # Configure logging
 logging.basicConfig(
@@ -52,6 +54,9 @@ async def lifespan(app: FastAPI):
     
     # Connect to MongoDB
     await connect_to_mongo()
+    
+    # Ensure database indexes
+    await ensure_indexes()
     
     # Create uploads directory
     uploads_dir = "uploads"
@@ -107,6 +112,8 @@ app.add_middleware(RequestLoggingMiddleware)
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(predictions_router)
+app.include_router(review_requests_router)
+app.include_router(notifications_router)
 
 # Mount static files for /uploads
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
