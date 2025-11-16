@@ -76,3 +76,53 @@ async def send_login_notification_email(email: str, username: str, ip_address: s
     </html>
     """
     await send_email(email, subject, html_body)
+
+
+async def send_review_request_email(
+    dermatologist_email: str,
+    dermatologist_name: str,
+    patient_name: str,
+    prediction_id: str
+):
+    """Send email notification to dermatologist when a review is requested"""
+    subject = "New Review Request - FacialDerma AI"
+    html_body = f"""
+    <html>
+        <body>
+            <h2>New Review Request</h2>
+            <p>Hello Dr. {dermatologist_name},</p>
+            <p>You have received a new review request from <strong>{patient_name}</strong>.</p>
+            <p><strong>Prediction ID:</strong> {prediction_id}</p>
+            <br>
+            <p>Please log in to your dashboard to review the case and provide your expert feedback.</p>
+            <br>
+            <p>Best regards,<br>The FacialDerma AI Team</p>
+        </body>
+    </html>
+    """
+    await send_email(dermatologist_email, subject, html_body)
+
+
+async def send_review_submitted_email(
+    patient_email: str,
+    patient_name: str,
+    dermatologist_name: str,
+    prediction_id: str
+):
+    """Send email notification to patient when dermatologist submits a review"""
+    subject = "Expert Review Added - FacialDerma AI"
+    html_body = f"""
+    <html>
+        <body>
+            <h2>Expert Review Added</h2>
+            <p>Hello {patient_name},</p>
+            <p>Dr. <strong>{dermatologist_name}</strong> has added an expert review to your prediction.</p>
+            <p><strong>Prediction ID:</strong> {prediction_id}</p>
+            <br>
+            <p>Please log in to your account to view the detailed feedback from our dermatologist.</p>
+            <br>
+            <p>Best regards,<br>The FacialDerma AI Team</p>
+        </body>
+    </html>
+    """
+    await send_email(patient_email, subject, html_body)
