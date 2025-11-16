@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.auth.service import decode_token, get_user_by_id
-from typing import Optional
+from typing import Optional, Callable
 
 security = HTTPBearer()
 
@@ -47,3 +47,30 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         )
     
     return user
+
+
+def require_role(*allowed_roles: str) -> Callable:
+    """
+    Dependency factory to enforce role-based access control.
+    
+    Usage:
+        @router.get("/endpoint", dependencies=[Depends(require_role("dermatologist"))])
+        async def endpoint(current_user: dict = Depends(get_current_user)):
+            ...
+    
+    Args:
+        *allowed_roles: One or more role strings (e.g., "patient", "dermatologist")
+    
+    Returns:
+        A dependency function that raises 403 if user role not in allowed_roles
+    """
+    async def role_checker(current_user: dict = Depends(get_current_user)):
+        user_role = current_user.get("role")
+        if user_role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"error": f"Access denied. Required role: {', '.join(allowed_roles)}"}
+            )
+        return current_user
+    
+    return role_checker
