@@ -13,7 +13,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 def hash_password(password: str) -> str:
     """Hash a password using bcrypt"""
     # Ensure password is properly encoded and within bcrypt's 72-byte limit
-    password_bytes = password.encode('utf-8')
+    password_bytes = password.encode("utf-8")
     if len(password_bytes) > 72:
         raise ValueError("Password cannot be longer than 72 bytes")
     return pwd_context.hash(password)
@@ -29,11 +29,9 @@ def create_access_token(data: dict) -> str:
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(days=settings.JWT_EXPIRATION_DAYS)
     to_encode.update({"exp": expire})
-    
+
     encoded_jwt = jwt.encode(
-        to_encode,
-        settings.JWT_SECRET,
-        algorithm=settings.JWT_ALGORITHM
+        to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM
     )
     return encoded_jwt
 
@@ -42,9 +40,7 @@ def decode_token(token: str) -> Optional[dict]:
     """Decode and verify a JWT token"""
     try:
         payload = jwt.decode(
-            token,
-            settings.JWT_SECRET,
-            algorithms=[settings.JWT_ALGORITHM]
+            token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM]
         )
         return payload
     except JWTError:
@@ -75,18 +71,22 @@ async def get_user_by_id(user_id: str):
         return None
 
 
-async def create_user(role: str, username: str, email: str, password: str):
+async def create_user(role: str, name: Optional[str], username: str, email: str, password: str):
     """Create a new user in the database"""
     users = get_users_collection()
-    
+
     user_doc = {
         "role": role,
         "username": username,
         "email": email.lower(),
-        "password": hash_password(password)
+        "password": hash_password(password),
     }
     
+    if name:                      # ADD THIS - Only include if provided
+        user_doc["name"] = name
+    
+
     result = await users.insert_one(user_doc)
     user_doc["_id"] = result.inserted_id
-    
+
     return user_doc
