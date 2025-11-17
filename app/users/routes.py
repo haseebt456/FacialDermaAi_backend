@@ -11,7 +11,7 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 async def get_me(current_user: dict = Depends(get_current_user)):
     """
     Get current authenticated user information
-    
+
     Requires: Bearer token in Authorization header
     Returns: User data excluding password
     """
@@ -19,7 +19,7 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         id=str(current_user["_id"]),
         username=current_user["username"],
         email=current_user["email"],
-        role=current_user["role"]
+        role=current_user["role"],
     )
 
 

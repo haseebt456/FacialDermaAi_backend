@@ -4,6 +4,7 @@ from datetime import datetime
 
 class UserMeResponse(BaseModel):
     """Response for GET /api/users/me"""
+
     id: str
     username: str
     email: str
