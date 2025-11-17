@@ -5,8 +5,7 @@ from app.users.schemas import (
     UserMeResponse, 
     DermatologistSummary, 
     DermatologistListResponse,
-    UpdateProfileRequest,
-    AddMedicalHistoryRequest
+    UpdateProfileRequest
 )
 from app.deps.auth import get_current_user
 from app.db.mongo import get_users_collection
@@ -103,89 +102,6 @@ async def update_me(profile: UpdateProfileRequest, current_user: dict = Depends(
     
     update_data["updatedAt"] = datetime.utcnow()
     await collection.update_one({"_id": current_user["_id"]}, {"$set": update_data})
-    
-    user = await collection.find_one({"_id": current_user["_id"]})
-    return UserMeResponse(
-        id=str(user["_id"]),
-        username=user["username"],
-        email=user["email"],
-        role=user["role"],
-        name=user.get("name"),
-        gender=user.get("gender"),
-        age=user.get("age"),
-        height=user.get("height"),
-        weight=user.get("weight"),
-        bloodGroup=user.get("bloodGroup"),
-        phone=user.get("phone"),
-        emergencyContact=user.get("emergencyContact"),
-        address=user.get("address"),
-        allergies=user.get("allergies"),
-        medicalHistory=user.get("medicalHistory", []),
-        profileImage=user.get("profileImage"),
-        specialization=user.get("specialization"),
-        license=user.get("license"),
-        clinic=user.get("clinic"),
-        fees=user.get("fees"),
-        experience=user.get("experience"),
-        bio=user.get("bio"),
-        createdAt=user.get("createdAt"),
-        updatedAt=user.get("updatedAt")
-    )
-
-@router.post("/me/medical-history", response_model=UserMeResponse)
-async def add_medical_history(request: AddMedicalHistoryRequest, current_user: dict = Depends(get_current_user)):
-    """Add medical history entry"""
-    collection = get_users_collection()
-    
-    await collection.update_one(
-        {"_id": current_user["_id"]},
-        {"$push": {"medicalHistory": request.entry}, "$set": {"updatedAt": datetime.utcnow()}}
-    )
-    
-    user = await collection.find_one({"_id": current_user["_id"]})
-    return UserMeResponse(
-        id=str(user["_id"]),
-        username=user["username"],
-        email=user["email"],
-        role=user["role"],
-        name=user.get("name"),
-        gender=user.get("gender"),
-        age=user.get("age"),
-        height=user.get("height"),
-        weight=user.get("weight"),
-        bloodGroup=user.get("bloodGroup"),
-        phone=user.get("phone"),
-        emergencyContact=user.get("emergencyContact"),
-        address=user.get("address"),
-        allergies=user.get("allergies"),
-        medicalHistory=user.get("medicalHistory", []),
-        profileImage=user.get("profileImage"),
-        specialization=user.get("specialization"),
-        license=user.get("license"),
-        clinic=user.get("clinic"),
-        fees=user.get("fees"),
-        experience=user.get("experience"),
-        bio=user.get("bio"),
-        createdAt=user.get("createdAt"),
-        updatedAt=user.get("updatedAt")
-    )
-
-@router.delete("/me/medical-history/{index}", response_model=UserMeResponse)
-async def delete_medical_history(index: int, current_user: dict = Depends(get_current_user)):
-    """Delete medical history entry by index"""
-    collection = get_users_collection()
-    
-    user = await collection.find_one({"_id": current_user["_id"]})
-    medical_history = user.get("medicalHistory", [])
-    
-    if index < 0 or index >= len(medical_history):
-        raise HTTPException(status_code=400, detail="Invalid index")
-    
-    medical_history.pop(index)
-    await collection.update_one(
-        {"_id": current_user["_id"]},
-        {"$set": {"medicalHistory": medical_history, "updatedAt": datetime.utcnow()}}
-    )
     
     user = await collection.find_one({"_id": current_user["_id"]})
     return UserMeResponse(
