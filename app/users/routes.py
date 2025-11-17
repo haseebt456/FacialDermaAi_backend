@@ -159,3 +159,37 @@ async def add_medical_history(
     )
 
     return {"message": "Medical history entry added successfully"}
+
+@router.delete("/profile/medical-history/{index}")
+async def delete_medical_history(
+    index: int,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Delete a medical history entry by index
+    
+    Requires: Bearer token in Authorization header
+    """
+    users = get_users_collection()
+    
+    # Get current user's medical history
+    user = await users.find_one({"_id": ObjectId(current_user["_id"])})
+    medical_history = user.get("medicalHistory", [])
+    
+    # Check if index is valid
+    if index < 0 or index >= len(medical_history):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid medical history index"
+        )
+    
+    # Remove the entry at the specified index
+    medical_history.pop(index)
+    
+    # Update the user's medical history
+    await users.update_one(
+        {"_id": ObjectId(current_user["_id"])},
+        {"$set": {"medicalHistory": medical_history}}
+    )
+    
+    return {"message": "Medical history entry deleted successfully"}
