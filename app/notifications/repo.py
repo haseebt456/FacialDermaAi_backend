@@ -18,7 +18,7 @@ async def create_notification(
     
     Args:
         user_id: ObjectId of the recipient
-        notification_type: "review_requested" or "review_submitted"
+        notification_type: "review_requested", "review_submitted", or "review_rejected"
         message: Notification text
         ref_data: Dict with requestId, predictionId, etc.
     

@@ -32,7 +32,7 @@ class ReviewRequest(BaseModel):
     predictionId: str
     patientId: str
     dermatologistId: str
-    status: Literal["pending", "reviewed"]
+    status: Literal["pending", "reviewed", "rejected"]
     comment: Optional[str] = None
     createdAt: datetime
     reviewedAt: Optional[datetime] = None

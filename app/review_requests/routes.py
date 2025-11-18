@@ -14,6 +14,7 @@ from app.review_requests.repo import (
     get_review_request_by_id,
     get_review_requests_for_user,
     submit_review,
+    reject_review_request,
     get_prediction_by_id
 )
 from app.deps.auth import get_current_user, require_role
@@ -136,7 +137,7 @@ async def create_request(
 
 @router.get("", response_model=ReviewRequestListResponse)
 async def list_requests(
-    status_filter: Optional[str] = Query(None, regex="^(pending|reviewed)$"),
+    status_filter: Optional[str] = Query(None, regex="^(pending|reviewed|rejected)$"),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
     current_user: dict = Depends(get_current_user)
@@ -280,4 +281,78 @@ async def add_review(
     
     logger.info(f"Review added to request {request_id} by {current_user['username']}")
     
+    return format_review_request(updated_doc)
+
+
+@router.post("/{id}/reject", response_model=ReviewRequest)
+async def reject_request(
+    id: str,
+    payload: ReviewAction,
+    current_user: dict = Depends(require_role("dermatologist"))
+):
+    """
+    Reject/deny a pending review request.
+
+    Requires: Dermatologist role and must be assigned to this request
+
+    Returns:
+        200: Request rejected successfully
+        400: Request already reviewed/rejected or validation error
+        403: Not the assigned dermatologist
+        404: Request not found
+    """
+    try:
+        request_id = ObjectId(id)
+        dermatologist_id = ObjectId(str(current_user["_id"]))
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "Invalid request ID"}
+        )
+
+    try:
+        updated_doc = await reject_review_request(request_id, dermatologist_id, payload.comment)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": str(e)}
+        )
+
+    if not updated_doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "Review request not found"}
+        )
+
+    # Notify patient of rejection
+    from app.notifications.repo import create_notification
+    from app.email.mailer import send_review_rejected_email
+    import asyncio
+
+    patient_id = updated_doc["patientId"]
+    patient = await get_user_by_id(str(patient_id))
+
+    if patient:
+        await create_notification(
+            user_id=patient_id,
+            notification_type="review_rejected",
+            message=f"Dr. {current_user['username']} rejected your review request",
+            ref_data={
+                "requestId": str(request_id),
+                "predictionId": str(updated_doc["predictionId"])
+            }
+        )
+
+        asyncio.create_task(
+            send_review_rejected_email(
+                patient["email"],
+                patient["username"],
+                current_user["username"],
+                str(updated_doc["predictionId"]),
+                payload.comment
+            )
+        )
+
+    logger.info(f"Review request {request_id} rejected by {current_user['username']}")
+
     return format_review_request(updated_doc)

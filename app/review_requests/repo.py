@@ -172,3 +172,49 @@ async def get_prediction_by_id(prediction_id: ObjectId) -> Optional[dict]:
     """Get a prediction document by ID"""
     collection = get_predictions_collection()
     return await collection.find_one({"_id": prediction_id})
+
+
+async def reject_review_request(
+    request_id: ObjectId,
+    dermatologist_id: ObjectId,
+    reason: str
+) -> Optional[dict]:
+    """
+    Reject/deny a pending review request.
+
+    Returns:
+        Updated request document or None if not found/not authorized
+
+    Raises:
+        ValueError: If request is not pending or dermatologist is not assigned
+    """
+    collection = get_review_requests_collection()
+
+    request = await collection.find_one({"_id": request_id})
+    if not request:
+        return None
+
+    # Verify dermatologist is assigned
+    if request["dermatologistId"] != dermatologist_id:
+        raise ValueError("You are not assigned to this request")
+
+    # Verify status is pending
+    if request["status"] != "pending":
+        raise ValueError("This request has already been reviewed")
+
+    # Update with rejection
+    update_result = await collection.find_one_and_update(
+        {"_id": request_id},
+        {
+            "$set": {
+                "comment": reason,
+                "status": "rejected",
+                "reviewedAt": datetime.utcnow()
+            }
+        },
+        return_document=True
+    )
+
+    logger.info(f"Review request {request_id} rejected by dermatologist {dermatologist_id}")
+
+    return update_result

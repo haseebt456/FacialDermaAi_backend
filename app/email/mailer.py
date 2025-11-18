@@ -126,3 +126,30 @@ async def send_review_submitted_email(
     </html>
     """
     await send_email(patient_email, subject, html_body)
+
+
+async def send_review_rejected_email(
+    patient_email: str,
+    patient_name: str,
+    dermatologist_name: str,
+    prediction_id: str,
+    reason: str
+):
+    """Send email notification to patient when dermatologist rejects a review request"""
+    subject = "Review Request Rejected - FacialDerma AI"
+    html_body = f"""
+    <html>
+        <body>
+            <h2>Review Request Update</h2>
+            <p>Hello {patient_name},</p>
+            <p>Dr. <strong>{dermatologist_name}</strong> has rejected your review request.</p>
+            <p><strong>Prediction ID:</strong> {prediction_id}</p>
+            <p><strong>Reason:</strong> {reason}</p>
+            <br>
+            <p>You can request another dermatologist if needed.</p>
+            <br>
+            <p>Best regards,<br>The FacialDerma AI Team</p>
+        </body>
+    </html>
+    """
+    await send_email(patient_email, subject, html_body)
