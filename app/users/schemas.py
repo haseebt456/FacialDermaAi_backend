@@ -68,10 +68,6 @@ class UpdateProfileRequest(BaseModel):
     experience: Optional[int] = None
     bio: Optional[str] = None
 
-class AddMedicalHistoryRequest(BaseModel):
-    """Request to add medical history entry"""
-    entry: str
-    
 # Added by Asad
 
 class DermatologistSummary(BaseModel):

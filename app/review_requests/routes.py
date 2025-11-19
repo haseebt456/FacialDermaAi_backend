@@ -18,6 +18,7 @@ from app.review_requests.repo import (
     get_prediction_by_id
 )
 from app.deps.auth import get_current_user, require_role
+from app.predictions.schemas import PredictionDocument, PredictionResult
 from app.auth.service import get_user_by_id
 
 logger = logging.getLogger(__name__)
@@ -168,18 +169,18 @@ async def list_requests(
     )
 
 
-@router.get("/{id}", response_model=ReviewRequest)
+@router.get("/{id}")
 async def get_request(
     id: str,
     current_user: dict = Depends(get_current_user)
 ):
     """
-    Get a specific review request.
+    Get a specific review request with prediction details.
     
     Requires: Must be the assigned dermatologist or the patient who created it
     
     Returns:
-        200: Review request details
+        200: Review request details with prediction (image, result, patient info)
         403: Not authorized to view this request
         404: Request not found
     """
@@ -206,7 +207,43 @@ async def get_request(
             detail={"error": "You are not authorized to view this request"}
         )
     
-    return format_review_request(doc)
+    # Load prediction details
+    prediction = await get_prediction_by_id(doc["predictionId"])
+    if not prediction:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "Prediction not found"}
+        )
+    
+    # Load patient info
+    patient = await get_user_by_id(str(doc["patientId"]))
+    patient_name = patient.get("name") or patient.get("username") if patient else "Unknown"
+    
+    # Return enriched response with prediction details
+    return {
+        "id": str(doc["_id"]),
+        "predictionId": str(doc["predictionId"]),
+        "patientId": str(doc["patientId"]),
+        "dermatologistId": str(doc["dermatologistId"]),
+        "status": doc["status"],
+        "comment": doc.get("comment"),
+        "createdAt": doc["createdAt"],
+        "reviewedAt": doc.get("reviewedAt"),
+        "patientUsername": doc.get("patientUsername"),
+        "dermatologistUsername": doc.get("dermatologistUsername"),
+        # Prediction details
+        "prediction": {
+            "id": str(prediction["_id"]),
+            "userId": str(prediction["userId"]),
+            "result": {
+                "predicted_label": prediction["result"]["predicted_label"],
+                "confidence_score": prediction["result"]["confidence_score"],
+            },
+            "imageUrl": prediction["imageUrl"],
+            "createdAt": prediction["createdAt"],
+        },
+        "patientName": patient_name
+    }
 
 
 @router.post("/{id}/review", response_model=ReviewRequest)
