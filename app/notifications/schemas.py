@@ -7,7 +7,7 @@ class Notification(BaseModel):
     """Schema for notification response"""
     id: str
     userId: str
-    type: Literal["review_requested", "review_submitted"]
+    type: Literal["review_requested", "review_submitted", "review_rejected"]
     message: str
     ref: dict  # Contains requestId, predictionId, etc.
     isRead: bool
