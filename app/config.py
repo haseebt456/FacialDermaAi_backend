@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     EMAIL_PASS: str
     ORIGIN: str = "http://localhost:3000"
     
+    # Cloudinary configuration
+    CLOUDINARY_CLOUD_NAME: str
+    CLOUDINARY_API_KEY: str
+    CLOUDINARY_API_SECRET: str
+    
     # JWT configuration
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_DAYS: int = 1

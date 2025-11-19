@@ -12,6 +12,11 @@ class Notification(BaseModel):
     ref: dict  # Contains requestId, predictionId, etc.
     isRead: bool
     createdAt: datetime
+    
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat() if v else None
+        }
 
 
 class NotificationListResponse(BaseModel):

@@ -1,10 +1,10 @@
 import numpy as np
 from app.ml.model_loader import get_model, LABELS_MAP
 from app.ml.preprocess import preprocess_image
-from typing import Dict
+from typing import Dict, Union, BinaryIO
 
 
-def predict_image(image_path: str) -> Dict[str, any]:
+def predict_image(image_path: Union[str, bytes, BinaryIO]) -> Dict[str, any]:
     """
     Predict dermatological condition from image
     

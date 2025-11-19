@@ -40,6 +40,11 @@ class ReviewRequest(BaseModel):
     # Optional metadata for UI display
     patientUsername: Optional[str] = None
     dermatologistUsername: Optional[str] = None
+    
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat() if v else None
+        }
 
 
 class ReviewRequestListResponse(BaseModel):

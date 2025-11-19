@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 import os
 import logging
 import warnings
+import cloudinary.api
 
 # Silence TensorFlow C++ logs as early as possible
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
@@ -34,6 +35,7 @@ from app.users.routes import router as users_router
 from app.predictions.routes import router as predictions_router
 from app.review_requests.routes import router as review_requests_router
 from app.notifications.routes import router as notifications_router
+from app.cloudinary_helper import cloudinary
 
 # Configure logging
 logging.basicConfig(
@@ -57,13 +59,15 @@ async def lifespan(app: FastAPI):
     
     # Ensure database indexes
     await ensure_indexes()
-    
-    # Create uploads directory
-    uploads_dir = "uploads"
-    if not os.path.exists(uploads_dir):
-        os.makedirs(uploads_dir)
-        logger.info(f"Created uploads directory: {uploads_dir}")
-    
+
+    # Cloudinary connectivity check
+    try:
+        # This will fetch account info and raise if credentials are invalid
+        account_info = cloudinary.api.ping()
+        logger.info(f"Connected to Cloudinary: {account_info}")
+    except Exception as e:
+        logger.error(f"Cloudinary connection failed: {str(e)}")
+
     # Load ML model
     try:
         load_model()
@@ -115,8 +119,6 @@ app.include_router(predictions_router)
 app.include_router(review_requests_router)
 app.include_router(notifications_router)
 
-# Mount static files for /uploads
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
 @app.get("/", response_class=PlainTextResponse)

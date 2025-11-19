@@ -4,24 +4,14 @@ from app.predictions.repo import create_prediction, get_user_predictions
 from app.deps.auth import get_current_user
 from app.ml.validators import is_image_blurry, detect_faces
 from app.ml.inference import predict_image
-import os
-import shutil
+from app.cloudinary_helper import upload_to_cloudinary
+import io
 from typing import List
 import logging
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/predictions", tags=["predictions"])
-
-# Uploads directory
-UPLOADS_DIR = "uploads"
-
-
-def ensure_uploads_directory():
-    """Ensure uploads directory exists"""
-    if not os.path.exists(UPLOADS_DIR):
-        os.makedirs(UPLOADS_DIR)
-        logger.info(f"Created uploads directory: {UPLOADS_DIR}")
 
 
 @router.get("", response_model=List[PredictionDocument])
@@ -68,55 +58,47 @@ async def predict(
     - Image must not be blurry (Laplacian variance >= 100)
     - Image must contain at least one face
     """
-    # Ensure uploads directory exists
-    ensure_uploads_directory()
-    
-    # Save uploaded file
-    file_path = os.path.join(UPLOADS_DIR, image.filename)
     try:
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(image.file, buffer)
-        logger.info(f"Saved uploaded image to {file_path}")
-    except Exception as e:
-        logger.error(f"Failed to save image: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": "Failed to save image"}
-        )
-    
-    try:
-        # Validate: Check for blur (EXACT typo from spec)
-        is_blurry, variance = is_image_blurry(file_path)
+        # Read uploaded file into BytesIO buffer for in-memory processing
+        image.file.seek(0)
+        image_bytes = await image.read()
+        image_buffer = io.BytesIO(image_bytes)
+        
+        # Validate: Check for blur
+        image_buffer.seek(0)
+        is_blurry, variance = is_image_blurry(image_buffer)
         if is_blurry:
-            # Clean up file
-            if os.path.exists(file_path):
-                os.remove(file_path)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={"error": "Image is blury.Please try again with a clear picture"}
             )
         
         # Validate: Check for face
-        has_face, face_count = detect_faces(file_path)
+        image_buffer.seek(0)
+        has_face, face_count = detect_faces(image_buffer)
         if not has_face:
-            # Clean up file
-            if os.path.exists(file_path):
-                os.remove(file_path)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={"error": "No face detected in the image"}
             )
-        
         logger.info(f"Image validation passed: variance={variance:.2f}, faces={face_count}")
         
         # Run ML inference
-        prediction_result = predict_image(file_path)
+        image_buffer.seek(0)
+        prediction_result = predict_image(image_buffer)
         
-        # Build image URL
-        scheme = request.url.scheme
-        host = request.headers.get("host", request.client.host)
-        image_url = f"{scheme}://{host}/uploads/{image.filename}"
-        
+        # Upload to Cloudinary
+        image_buffer.seek(0)
+        try:
+            cloudinary_result = upload_to_cloudinary(image_buffer, folder="facial_derma_predictions")
+            image_url = cloudinary_result["url"]
+            logger.info(f"Image uploaded to Cloudinary: {cloudinary_result['public_id']}")
+        except Exception as e:
+            logger.error(f"Cloudinary upload failed: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={"error": "Failed to upload image"}
+            )
         # Save prediction to database
         user_id = str(current_user["_id"])
         await create_prediction(
@@ -139,9 +121,6 @@ async def predict(
         raise
     except Exception as e:
         logger.error(f"Prediction failed: {str(e)}")
-        # Clean up file on error
-        if os.path.exists(file_path):
-            os.remove(file_path)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"error": "Prediction failed"}
