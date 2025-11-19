@@ -219,6 +219,16 @@ async def get_request(
     patient = await get_user_by_id(str(doc["patientId"]))
     patient_name = patient.get("name") or patient.get("username") if patient else "Unknown"
     
+    # Load dermatologist info
+    dermatologist = await get_user_by_id(str(doc["dermatologistId"]))
+    dermatologist_info = None
+    if dermatologist:
+        dermatologist_info = {
+            "name": dermatologist.get("name"),
+            "username": dermatologist.get("username"),
+            "email": dermatologist.get("email")
+        }
+    
     # Return enriched response with prediction details
     return {
         "id": str(doc["_id"]),
@@ -242,7 +252,8 @@ async def get_request(
             "imageUrl": prediction["imageUrl"],
             "createdAt": prediction["createdAt"],
         },
-        "patientName": patient_name
+        "patientName": patient_name,
+        "dermatologistInfo": dermatologist_info
     }
 
 
