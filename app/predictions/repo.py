@@ -56,3 +56,24 @@ async def get_user_predictions(user_id: str) -> List[dict]:
     predictions_list = await cursor.to_list(length=None)
     
     return predictions_list
+
+
+async def delete_prediction(prediction_id: str, user_id: str) -> bool:
+    """
+    Delete a prediction document
+    
+    Args:
+        prediction_id: Prediction's ObjectId as string
+        user_id: User's ObjectId as string (for authorization)
+        
+    Returns:
+        True if deleted successfully, False if not found
+    """
+    predictions = get_predictions_collection()
+    
+    result = await predictions.delete_one({
+        "_id": ObjectId(prediction_id),
+        "userId": ObjectId(user_id)
+    })
+    
+    return result.deleted_count > 0

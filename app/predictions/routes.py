@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Request
 from app.predictions.schemas import PredictionResponse, PredictionDocument, PredictionResult
-from app.predictions.repo import create_prediction, get_user_predictions
+from app.predictions.repo import create_prediction, get_user_predictions, delete_prediction
 from app.deps.auth import get_current_user
 from app.ml.validators import is_image_blurry, detect_faces
 from app.ml.inference import predict_image
@@ -125,3 +125,41 @@ async def predict(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"error": "Prediction failed"}
         )
+
+
+@router.delete("/{prediction_id}", status_code=status.HTTP_200_OK)
+async def delete_prediction_record(
+    prediction_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Delete a prediction record
+    
+    Requires: User must own the prediction
+    
+    Returns:
+        200: Prediction deleted successfully
+        403: Not the owner of the prediction
+        404: Prediction not found
+    """
+    try:
+        from bson import ObjectId
+        ObjectId(prediction_id)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "Invalid prediction ID"}
+        )
+    
+    user_id = str(current_user["_id"])
+    deleted = await delete_prediction(prediction_id, user_id)
+    
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "Prediction not found or you don't have permission to delete it"}
+        )
+    
+    logger.info(f"Prediction {prediction_id} deleted by user {user_id}")
+    
+    return {"message": "Prediction deleted successfully"}
