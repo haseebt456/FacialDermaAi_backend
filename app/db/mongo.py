@@ -17,7 +17,6 @@ async def connect_to_mongo():
         # Verify connection by pinging the database
         await mongo_client.admin.command('ping')
         logger.info("Successfully connected to MongoDB")
-        print(f"Connected to MongoDB at {settings.MONGO_URI}")
     except Exception as e:
         logger.error(f"Failed to connect to MongoDB: {str(e)}")
         raise ConnectionError(f"Could not connect to MongoDB: {str(e)}")
@@ -28,7 +27,7 @@ async def close_mongo_connection():
     global mongo_client
     if mongo_client:
         mongo_client.close()
-        print("Closed MongoDB connection")
+        logger.info("Closed MongoDB connection")
 
 
 def get_database():
