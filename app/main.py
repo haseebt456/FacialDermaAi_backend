@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 import os
 import logging
 import warnings
-import cloudinary.api
+# cloudinary.api is available via the imported cloudinary module below
 
 # Silence TensorFlow C++ logs as early as possible
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
@@ -103,7 +103,7 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for now
+    allow_origins=[settings.ORIGIN] if settings.ORIGIN else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
