@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     
     # JWT configuration
     JWT_ALGORITHM: str = "HS256"
-    JWT_EXPIRATION_DAYS: int = 1
+    JWT_EXPIRATION_DAYS: int = 7  # Extended to 7 days for better UX
     
     # ML Model
     MODEL_PATH: str = "ResNet_Model.keras"
