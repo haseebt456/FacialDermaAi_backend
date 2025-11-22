@@ -26,8 +26,8 @@ async def send_email(to_email: str, subject: str, html_body: str):
         # Send email
         await aiosmtplib.send(
             message,
-            hostname="smtp.gmail.com",
-            port=587,
+            hostname=settings.SMTP_HOST,
+            port=settings.SMTP_PORT,
             start_tls=True,
             username=settings.EMAIL_USER,
             password=settings.EMAIL_PASS,
@@ -153,3 +153,41 @@ async def send_review_rejected_email(
     </html>
     """
     await send_email(patient_email, subject, html_body)
+
+
+async def send_otp_email(email: str, username: str, otp: str):
+    """Send OTP email for password reset"""
+    
+    # Development mode: Skip email and log OTP
+    if settings.SKIP_EMAIL:
+        print("\n" + "=" * 60)
+        print("🔧 DEVELOPMENT MODE - EMAIL SKIPPED")
+        print(f"📧 Email: {email}")
+        print(f"👤 Username: {username}")
+        print(f"🔐 OTP CODE: {otp}")
+        print(f"⏰ Valid for: 10 minutes")
+        print("=" * 60 + "\n")
+        logger.info(f"DEV MODE: OTP for {email} is {otp}")
+        return
+    
+    subject = "Password Reset OTP - FacialDerma AI"
+    html_body = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f4;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                <h2 style="color: #2563eb; margin-bottom: 20px;">Password Reset Request</h2>
+                <p>Hello <strong>{username}</strong>,</p>
+                <p>You requested to reset your password for your FacialDerma AI account.</p>
+                <p>Your One-Time Password (OTP) is:</p>
+                <div style="background-color: #eff6ff; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+                    <h1 style="color: #1e40af; letter-spacing: 8px; margin: 0; font-size: 36px;">{otp}</h1>
+                </div>
+                <p style="color: #dc2626; font-weight: bold;">⏰ This OTP will expire in 10 minutes.</p>
+                <p>If you didn't request this password reset, please ignore this email or contact support if you have concerns.</p>
+                <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
+                <p style="color: #6b7280; font-size: 14px;">Best regards,<br>The FacialDerma AI Team</p>
+            </div>
+        </body>
+    </html>
+    """
+    await send_email(email, subject, html_body)
