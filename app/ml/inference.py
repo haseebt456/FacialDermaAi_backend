@@ -1,33 +1,44 @@
-import numpy as np
-from app.ml.model_loader import get_model, LABELS_MAP
+import torch
+import torch.nn.functional as F
+from app.ml.pytorch_loader import get_model, get_model_device, LABELS_MAP
 from app.ml.preprocess import preprocess_image
 from typing import Dict, Union, BinaryIO
 
 
 def predict_image(image_path: Union[str, bytes, BinaryIO]) -> Dict[str, any]:
     """
-    Predict dermatological condition from image
+    Predict dermatological condition from image using PyTorch
     
     Args:
-        image_path: Path to the image file
+        image_path: Path to the image file, bytes, or file-like object
         
     Returns:
         Dictionary with:
         - predicted_label: str
         - confidence_score: float (rounded to 3 decimals)
     """
-    # Get model
+    # Get model and device
     model = get_model()
+    device = get_model_device()
     
     # Preprocess image
-    img_array = preprocess_image(image_path)
+    img_tensor = preprocess_image(image_path)
     
-    # Make prediction
-    predictions = model.predict(img_array, verbose=0)
+    # Move tensor to model's device
+    img_tensor = img_tensor.to(device)
+    
+    # Make prediction (no gradient computation needed)
+    with torch.no_grad():
+        outputs = model(img_tensor)
+        # Apply softmax to get probabilities
+        probabilities = F.softmax(outputs, dim=1)
     
     # Get predicted class and confidence
-    predicted_class = int(np.argmax(predictions[0]))
-    confidence = float(np.max(predictions[0]))
+    confidence, predicted_class = torch.max(probabilities, dim=1)
+    
+    # Convert to Python types
+    predicted_class = int(predicted_class.item())
+    confidence = float(confidence.item())
     
     # Round confidence to 3 decimals
     confidence_rounded = round(confidence, 3)

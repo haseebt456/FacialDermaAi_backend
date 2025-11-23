@@ -1,37 +1,52 @@
-import cv2
-import numpy as np
-from tensorflow.keras.preprocessing import image as keras_image
+import torch
+from PIL import Image
+import torchvision.transforms as transforms
 from typing import Union, BinaryIO
+import io
 
 
-def preprocess_image(image_path: Union[str, bytes, BinaryIO], target_size: tuple = (224, 224)) -> np.ndarray:
+def preprocess_image(image_path: Union[str, bytes, BinaryIO], target_size: tuple = (224, 224)) -> torch.Tensor:
     """
-    Preprocess image for model prediction
+    Preprocess image for PyTorch model prediction
     
     Steps:
-    1. Load image
+    1. Load image with PIL
     2. Resize to target_size (224, 224)
-    3. Normalize pixel values to [0, 1]
-    4. Expand dimensions for batch
+    3. Convert to tensor
+    4. Normalize with ImageNet mean and std
+    5. Add batch dimension
     
     Returns:
-        Preprocessed image array ready for prediction
+        Preprocessed image tensor ready for prediction (shape: 1, 3, 224, 224)
     """
-    # Accept file-like object or bytes as well as file path
-    import io
+    # Define ImageNet normalization (as used in training)
+    normalize = transforms.Normalize(
+        mean=[0.485, 0.456, 0.406],
+        std=[0.229, 0.224, 0.225]
+    )
+    
+    # Define transformation pipeline
+    transform = transforms.Compose([
+        transforms.Resize(target_size),
+        transforms.ToTensor(),  # Converts to [0, 1] and changes to CHW format
+        normalize
+    ])
+    
+    # Load image
     if isinstance(image_path, (bytes, bytearray)):
         image_stream = io.BytesIO(image_path)
         image_stream.seek(0)
-        img = keras_image.load_img(image_stream, target_size=target_size)
+        img = Image.open(image_stream).convert('RGB')
     elif hasattr(image_path, 'read'):
         image_path.seek(0)
-        img = keras_image.load_img(image_path, target_size=target_size)
+        img = Image.open(image_path).convert('RGB')
     else:
-        img = keras_image.load_img(image_path, target_size=target_size)
-    # Convert to array
-    img_array = keras_image.img_to_array(img)
-    # Normalize to [0, 1]
-    img_array = img_array / 255.0
-    # Expand dimensions to create batch of 1
-    img_array = np.expand_dims(img_array, axis=0)
-    return img_array
+        img = Image.open(image_path).convert('RGB')
+    
+    # Apply transformations
+    img_tensor = transform(img)
+    
+    # Add batch dimension (1, 3, 224, 224)
+    img_tensor = img_tensor.unsqueeze(0)
+    
+    return img_tensor
