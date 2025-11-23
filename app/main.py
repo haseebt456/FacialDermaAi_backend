@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 import os
 import logging
 import warnings
-# cloudinary.api is available via the imported cloudinary module below
+
 
 # Silence TensorFlow C++ logs as early as possible
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
@@ -36,6 +36,7 @@ from app.predictions.routes import router as predictions_router
 from app.review_requests.routes import router as review_requests_router
 from app.notifications.routes import router as notifications_router
 from app.cloudinary_helper import cloudinary
+import cloudinary.api
 
 # Configure logging
 logging.basicConfig(
