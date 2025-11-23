@@ -7,28 +7,9 @@ import os
 import logging
 import warnings
 
-
-# Silence TensorFlow C++ logs as early as possible
-os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
-# Ensure Keras uses TensorFlow backend (Keras 3)
-os.environ.setdefault("KERAS_BACKEND", "tensorflow")
-# Optionally mute noisy deprecation warnings
-warnings.filterwarnings("ignore", message=r".*sparse_softmax_cross_entropy.*")
-# Further reduce TensorFlow/Keras verbosity
-try:
-    import tensorflow as tf  # Import early to set log levels
-    tf.get_logger().setLevel("ERROR")
-    try:
-        from absl import logging as absl_logging
-        absl_logging.set_verbosity(absl_logging.ERROR)
-    except Exception:
-        pass
-except Exception:
-    pass
-
 from app.config import settings
 from app.db.mongo import connect_to_mongo, close_mongo_connection, ensure_indexes
-from app.ml.model_loader import load_model
+from app.ml.pytorch_loader import load_model
 from app.middleware.logging import RequestLoggingMiddleware
 from app.auth.routes import router as auth_router
 from app.users.routes import router as users_router
@@ -69,18 +50,15 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Cloudinary connection failed: {str(e)}")
 
-    # Load ML model
+    # Load PyTorch ML model
     try:
         load_model()
-        logger.info("ML model loaded successfully")
+        logger.info("PyTorch model loaded successfully")
     except FileNotFoundError as e:
         logger.warning(f"Model file not found: {str(e)}")
         logger.warning("The /api/predictions/predict endpoint will fail until model is added")
     except Exception as e:
-        msg = str(e)
-        if "Full object config" in msg:
-            msg = msg.split("Full object config")[0].strip()
-        logger.error(f"Failed to load model: {msg}")
+        logger.error(f"Failed to load PyTorch model: {str(e)}")
         logger.debug("Full model load error details", exc_info=True)
     
     logger.info(f"Application started on port {settings.PORT}")
