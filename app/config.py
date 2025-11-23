@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     JWT_SECRET: str
     EMAIL_USER: str
     EMAIL_PASS: str
-    ORIGIN: str = "http://localhost:3000"
+    ORIGIN: str = "0.0.0.0"
     
     # Cloudinary configuration
     CLOUDINARY_CLOUD_NAME: str
