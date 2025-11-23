@@ -84,3 +84,8 @@ class DermatologistListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+class ChangePasswordRequest(BaseModel):
+    """Request to change user password"""
+    currentPassword: str
+    newPassword: str

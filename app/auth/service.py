@@ -98,3 +98,16 @@ async def create_user(role: str, name: Optional[str], username: str, email: str,
     user_doc["_id"] = result.inserted_id
 
     return user_doc
+
+
+async def update_user_password(email: str, new_password: str) -> bool:
+    """Update user password"""
+    users = get_users_collection()
+    email_lower = email.lower()
+    
+    result = await users.update_one(
+        {"emailLower": email_lower},
+        {"$set": {"password": hash_password(new_password)}}
+    )
+    
+    return result.modified_count > 0

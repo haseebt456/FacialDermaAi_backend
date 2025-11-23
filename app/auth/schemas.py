@@ -66,4 +66,29 @@ class ErrorResponse(BaseModel):
     error: str
 
 
+class ForgotPasswordRequest(BaseModel):
+    """Request schema for forgot password - sends OTP"""
+    email: EmailStr
+
+
+class VerifyOTPRequest(BaseModel):
+    """Request schema for verifying OTP"""
+    email: EmailStr
+    otp: str
+
+
+class ResetPasswordRequest(BaseModel):
+    """Request schema for resetting password"""
+    email: EmailStr
+    otp: str
+    newPassword: str
+
+    @field_validator("newPassword")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        if not v or len(v) < 6:
+            raise ValueError("Password must be at least 6 characters")
+        return v
+
+
 # User Profile Schemas

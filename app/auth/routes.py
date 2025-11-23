@@ -6,6 +6,9 @@ from app.auth.schemas import (
     MessageResponse,
     ErrorResponse,
     UserResponse,
+    ForgotPasswordRequest,
+    VerifyOTPRequest,
+    ResetPasswordRequest,
 )
 from app.auth.service import (
     get_user_by_email,
@@ -13,10 +16,14 @@ from app.auth.service import (
     create_user,
     verify_password,
     create_access_token,
+    update_user_password,
 )
-from app.email.mailer import send_welcome_email, send_login_notification_email
+from app.email.mailer import send_welcome_email, send_login_notification_email, send_otp_email
 import asyncio
 from pydantic import ValidationError
+import random
+import string
+from datetime import datetime, timedelta
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -156,3 +163,171 @@ async def login(login_data: LoginRequest, request: Request):
     )
 
     return LoginResponse(token=token, user=user_response)
+
+
+def generate_otp() -> str:
+    """Generate a 6-digit OTP"""
+    return ''.join(random.choices(string.digits, k=6))
+
+
+@router.post("/forgot-password", response_model=MessageResponse)
+async def forgot_password(request_data: ForgotPasswordRequest):
+    """
+    Send OTP to user's email for password reset
+    
+    Process:
+    - Validates email exists in database
+    - Generates 6-digit OTP
+    - Stores OTP with 10-minute expiration
+    - Sends OTP via email
+    """
+    try:
+        # Check if user exists
+        user = await get_user_by_email(request_data.email)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": "No account found with this email address"}
+            )
+        
+        # Generate OTP
+        otp = generate_otp()
+        otp_expires = datetime.utcnow() + timedelta(minutes=10)
+        
+        # Store OTP in user document
+        from app.db.mongo import get_users_collection
+        users_collection = get_users_collection()
+        
+        await users_collection.update_one(
+            {"_id": user["_id"]},
+            {
+                "$set": {
+                    "resetOtp": otp,
+                    "resetOtpExpires": otp_expires
+                }
+            }
+        )
+        
+        # Send OTP email asynchronously
+        asyncio.create_task(send_otp_email(user["email"], user["username"], otp))
+        
+        return {"message": "OTP sent to your email address. Please check your inbox."}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        import logging
+        logging.error(f"Forgot password error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": "Failed to process forgot password request"}
+        )
+
+
+@router.post("/verify-otp", response_model=MessageResponse)
+async def verify_otp(request_data: VerifyOTPRequest):
+    """
+    Verify the OTP sent to user's email
+    
+    Validations:
+    - Email and OTP must match stored values
+    - OTP must not be expired (10-minute window)
+    """
+    try:
+        # Find user with matching email and OTP
+        from app.db.mongo import get_users_collection
+        users_collection = get_users_collection()
+        
+        user = await users_collection.find_one({
+            "email": request_data.email.lower(),
+            "resetOtp": request_data.otp
+        })
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "Invalid OTP"}
+            )
+        
+        # Check if OTP is expired
+        if user.get("resetOtpExpires") and user["resetOtpExpires"] < datetime.utcnow():
+            # Clear expired OTP
+            await users_collection.update_one(
+                {"_id": user["_id"]},
+                {"$unset": {"resetOtp": "", "resetOtpExpires": ""}}
+            )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "OTP has expired. Please request a new one."}
+            )
+        
+        return {"message": "OTP verified successfully. You can now reset your password."}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        import logging
+        logging.error(f"Verify OTP error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": "Failed to verify OTP"}
+        )
+
+
+@router.post("/reset-password", response_model=MessageResponse)
+async def reset_password(request_data: ResetPasswordRequest):
+    """
+    Reset user's password after OTP verification
+    
+    Process:
+    - Validates email and OTP one final time
+    - Updates password with new hashed password
+    - Clears OTP fields from database
+    """
+    try:
+        # Verify OTP one more time before resetting
+        from app.db.mongo import get_users_collection
+        users_collection = get_users_collection()
+        
+        user = await users_collection.find_one({
+            "email": request_data.email.lower(),
+            "resetOtp": request_data.otp
+        })
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "Invalid OTP or email"}
+            )
+        
+        # Check if OTP is expired
+        if user.get("resetOtpExpires") and user["resetOtpExpires"] < datetime.utcnow():
+            await users_collection.update_one(
+                {"_id": user["_id"]},
+                {"$unset": {"resetOtp": "", "resetOtpExpires": ""}}
+            )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "OTP has expired. Please request a new one."}
+            )
+        
+        # Update password
+        await update_user_password(request_data.email, request_data.newPassword)
+        
+        # Clear OTP fields
+        await users_collection.update_one(
+            {"_id": user["_id"]},
+            {"$unset": {"resetOtp": "", "resetOtpExpires": ""}}
+        )
+        
+        return {"message": "Password reset successfully. You can now login with your new password."}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        import logging
+        logging.error(f"Reset password error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": "Failed to reset password"}
+        )

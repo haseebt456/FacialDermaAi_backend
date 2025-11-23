@@ -217,6 +217,18 @@ async def get_request(
     
     # Load patient info
     patient = await get_user_by_id(str(doc["patientId"]))
+    patient_info = None
+    if patient:
+        patient_info = {
+            "name": patient.get("name"),
+            "username": patient.get("username"),
+            "email": patient.get("email"),
+            "age": patient.get("age"),
+            "gender": patient.get("gender"),
+            "phone": patient.get("phone"),
+            "bloodGroup": patient.get("bloodGroup"),
+            "allergies": patient.get("allergies")
+        }
     patient_name = patient.get("name") or patient.get("username") if patient else "Unknown"
     
     # Load dermatologist info
@@ -253,6 +265,7 @@ async def get_request(
             "createdAt": prediction["createdAt"],
         },
         "patientName": patient_name,
+        "patientInfo": patient_info,
         "dermatologistInfo": dermatologist_info
     }
 
@@ -404,3 +417,57 @@ async def reject_request(
     logger.info(f"Review request {request_id} rejected by {current_user['username']}")
 
     return format_review_request(updated_doc)
+
+
+@router.delete("/{id}")
+async def delete_review_request(
+    id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Delete a review request.
+    
+    Requires: Must be the assigned dermatologist or the patient who created it
+    
+    Returns:
+        200: Review request deleted successfully
+        403: Not authorized to delete this request
+        404: Request not found
+    """
+    try:
+        request_id = ObjectId(id)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "Invalid request ID"}
+        )
+    
+    doc = await get_review_request_by_id(request_id)
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "Review request not found"}
+        )
+    
+    # Check authorization - only dermatologist or patient can delete
+    current_user_id = ObjectId(str(current_user["_id"]))
+    if doc["patientId"] != current_user_id and doc["dermatologistId"] != current_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": "You are not authorized to delete this request"}
+        )
+    
+    # Delete the review request from database
+    from app.db.mongo import get_review_requests_collection
+    review_requests = get_review_requests_collection()
+    result = await review_requests.delete_one({"_id": request_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "Review request not found"}
+        )
+    
+    logger.info(f"Review request {request_id} deleted by {current_user['username']}")
+    
+    return {"message": "Review request deleted successfully", "id": str(request_id)}

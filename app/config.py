@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     EMAIL_PASS: str
     ORIGIN: str = "0.0.0.0"
     
+    # Email SMTP configuration
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SKIP_EMAIL: bool = False  # Set to True to skip email and log OTP to console
+    
     # Cloudinary configuration
     CLOUDINARY_CLOUD_NAME: str
     CLOUDINARY_API_KEY: str

@@ -7,9 +7,11 @@ from app.users.schemas import (
     DermatologistSummary,
     DermatologistListResponse,
     UpdateProfileRequest,
+    ChangePasswordRequest,
 )
 from app.deps.auth import get_current_user
 from app.db.mongo import get_users_collection
+from app.auth.service import verify_password, hash_password
 from datetime import datetime
 
 
@@ -183,6 +185,60 @@ async def update_me(
             updatedAt=updated_user.get("updatedAt"),
         ),
     }
+
+
+@router.post("/change-password")
+async def change_password(
+    password_req: ChangePasswordRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Change user password
+    
+    Requires:
+    - Bearer token in Authorization header
+    - Current password (for verification)
+    - New password (min 8 characters)
+    
+    Returns:
+    - Success message on password change
+    """
+    collection = get_users_collection()
+    
+    # Get user with password
+    user = await collection.find_one({"_id": current_user["_id"]})
+    if not user:
+        raise HTTPException(status_code=404, detail={"error": "User not found"})
+    
+    # Verify current password
+    if not verify_password(password_req.currentPassword, user["password"]):
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "Current password is incorrect"}
+        )
+    
+    # Validate new password
+    if len(password_req.newPassword) < 8:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "New password must be at least 8 characters long"}
+        )
+    
+    # Check if new password is same as current
+    if verify_password(password_req.newPassword, user["password"]):
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "New password must be different from current password"}
+        )
+    
+    # Hash and update password
+    hashed_password = hash_password(password_req.newPassword)
+    await collection.update_one(
+        {"_id": current_user["_id"]},
+        {"$set": {"password": hashed_password, "updatedAt": datetime.utcnow()}}
+    )
+    
+    return {"message": "Password changed successfully"}
 
 # Added by Asad
 
