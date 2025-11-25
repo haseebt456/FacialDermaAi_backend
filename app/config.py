@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     PYTORCH_MODEL_PATH: str = "best_model.pth"
     
     # Image validation thresholds
-    BLUR_THRESHOLD: float = 100.0
+    BLUR_THRESHOLD: float = 50.0
     
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
