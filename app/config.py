@@ -26,11 +26,11 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_DAYS: int = 7  # Extended to 7 days for better UX
     
-    # ML Model
-    MODEL_PATH: str = "ResNet_Model.keras"
+    # ML Model (PyTorch)
+    PYTORCH_MODEL_PATH: str = "best_model.pth"
     
     # Image validation thresholds
-    BLUR_THRESHOLD: float = 100.0
+    BLUR_THRESHOLD: float = 50.0
     
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
