@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File,
 from app.predictions.schemas import PredictionResponse, PredictionDocument, PredictionResult
 from app.predictions.repo import create_prediction, get_user_predictions, delete_prediction
 from app.deps.auth import get_current_user
-from app.ml.validators import is_image_blurry, detect_faces
+from app.ml.validators import validate_min_face_ratio
 from app.ml.inference import predict_image
 from app.cloudinary_helper import upload_to_cloudinary
 import io
@@ -64,24 +64,16 @@ async def predict(
         image_bytes = await image.read()
         image_buffer = io.BytesIO(image_bytes)
         
-        # Validate: Check for blur
+        # Validate: Check for face and minimum face size ratio
         image_buffer.seek(0)
-        is_blurry, variance = is_image_blurry(image_buffer)
-        if is_blurry:
+        is_valid, reason, details = validate_min_face_ratio(image_buffer)
+        if not is_valid:
+            logger.warning(f"Image validation failed: {reason} | Details: {details}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"error": "Image is blury.Please try again with a clear picture"}
+                detail={"error": reason, "validation_details": details}
             )
-        
-        # Validate: Check for face
-        image_buffer.seek(0)
-        has_face, face_count = detect_faces(image_buffer)
-        if not has_face:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"error": "No face detected in the image"}
-            )
-        logger.info(f"Image validation passed: variance={variance:.2f}, faces={face_count}")
+        logger.info(f"Image validation passed: faces={details['face_count']}, max_ratio={details['max_face_ratio']:.2%}")
         
         # Run ML inference
         image_buffer.seek(0)

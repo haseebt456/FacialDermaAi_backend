@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     
     # Image validation thresholds
     BLUR_THRESHOLD: float = 50.0
+    MIN_FACE_AREA_RATIO: float = 0.25  # Minimum face area as fraction of image (5%)
     
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
