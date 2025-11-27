@@ -104,9 +104,9 @@ def validate_min_face_ratio(image_input: Union[str, bytes, BinaryIO], min_ratio:
     }
     
     if not has_face:
-        return False, "No face detected in the image", details
+        return False, "We couldn't detect a face in your photo. For best results, make sure your face is clearly visible, well-lit, and looking towards the camera.", details
     
     if max_face_area_ratio < min_ratio:
-        return False, f"Face is too small ({max_face_area_ratio*100:.1f}% of image, minimum {min_ratio*100:.1f}% required). Please use a closer photo.", details
+        return False, "Your face needs to be closer to the camera. Please retake the photo with your face filling more of the frame for accurate analysis.", details
     
     return True, "", details
