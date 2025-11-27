@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 _model = None
 _device = None
 
-# Label mapping (same as before for consistency)
+# Label mapping 
 LABELS_MAP = {
     0: "Eczema",
     1: "Acne",
