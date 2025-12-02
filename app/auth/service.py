@@ -5,6 +5,7 @@ from app.config import settings
 from app.db.mongo import get_users_collection
 from bson import ObjectId
 from typing import Optional
+import secrets
 
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -76,10 +77,14 @@ async def get_user_by_id(user_id: str):
 
 
 async def create_user(role: str, name: Optional[str], username: str, email: str, password: str):
-    """Create a new user in the database"""
+    """Create a new user in the database with email verification"""
     users = get_users_collection()
     
     email_lower = email.lower()
+    
+    # Generate secure verification token
+    verification_token = secrets.token_urlsafe(32)
+    token_expiry = datetime.utcnow() + timedelta(minutes=settings.VERIFICATION_TOKEN_EXPIRY_MINUTES)
     
     user_doc = {
         "role": role,
@@ -87,17 +92,56 @@ async def create_user(role: str, name: Optional[str], username: str, email: str,
         "email": email_lower,
         "emailLower": email_lower,  # For unique index
         "password": hash_password(password),
+        "is_verified": False,
+        "verification_token": verification_token,
+        "token_expiry": token_expiry,
         "createdAt": datetime.utcnow(),
     }
     
-    if name:                      # ADD THIS - Only include if provided
+    if name:
         user_doc["name"] = name
     
-
     result = await users.insert_one(user_doc)
     user_doc["_id"] = result.inserted_id
 
     return user_doc
+
+
+async def verify_email_token(token: str) -> Optional[dict]:
+    """Verify email token and mark user as verified"""
+    users = get_users_collection()
+    
+    # Find user by token
+    user = await users.find_one({"verification_token": token})
+    
+    if not user:
+        return None
+    
+    # Check if token is expired
+    if user.get("token_expiry") and user["token_expiry"] < datetime.utcnow():
+        return {"error": "expired"}
+    
+    # Check if already verified
+    if user.get("is_verified"):
+        return {"error": "already_verified"}
+    
+    # Mark as verified and clear token fields
+    await users.update_one(
+        {"_id": user["_id"]},
+        {
+            "$set": {"is_verified": True},
+            "$unset": {"verification_token": "", "token_expiry": ""}
+        }
+    )
+    
+    return user
+
+
+async def get_user_by_verification_token(token: str):
+    """Find user by verification token"""
+    users = get_users_collection()
+    user = await users.find_one({"verification_token": token})
+    return user
 
 
 async def update_user_password(email: str, new_password: str) -> bool:

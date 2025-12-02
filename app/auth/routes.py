@@ -9,6 +9,7 @@ from app.auth.schemas import (
     ForgotPasswordRequest,
     VerifyOTPRequest,
     ResetPasswordRequest,
+    VerifyEmailRequest,
 )
 from app.auth.service import (
     get_user_by_email,
@@ -17,8 +18,9 @@ from app.auth.service import (
     verify_password,
     create_access_token,
     update_user_password,
+    verify_email_token,
 )
-from app.email.mailer import send_welcome_email, send_login_notification_email, send_otp_email
+from app.email.mailer import send_welcome_email, send_login_notification_email, send_otp_email, send_verification_email
 import asyncio
 from pydantic import ValidationError
 import random
@@ -41,7 +43,14 @@ def get_client_ip(request: Request) -> str:
 )
 async def signup(signup_data: SignupRequest):
     """
-    Register a new user
+    Register a new user with email verification
+
+    Process:
+    1. Validates user data
+    2. Creates user with is_verified=False
+    3. Generates secure verification token
+    4. Sends verification email with link
+    5. Token expires in 15 minutes
 
     Validations:
     - role must be "patient" or "dermatologist"
@@ -49,6 +58,8 @@ async def signup(signup_data: SignupRequest):
     - username: required, unique, no spaces
     - email: required, unique, lowercased
     - password: required
+    
+    Returns success message asking user to check email
     """
     try:
         # Check if user already exists
@@ -56,17 +67,17 @@ async def signup(signup_data: SignupRequest):
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"error": "Email or username already exists"},
+                detail={"error": "Email already registered"},
             )
 
         existing_user = await get_user_by_username(signup_data.username)
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"error": "Email or username already exists"},
+                detail={"error": "Username already taken"},
             )
 
-        # Create user
+        # Create user with verification token
         user = await create_user(
             role=signup_data.role,
             name=signup_data.name,
@@ -75,13 +86,20 @@ async def signup(signup_data: SignupRequest):
             password=signup_data.password,
         )
 
-        # Send welcome email asynchronously (don't await)
-        asyncio.create_task(send_welcome_email(user["email"], user["username"]))
+        # Send verification email asynchronously
+        asyncio.create_task(
+            send_verification_email(
+                user["email"], 
+                user["username"], 
+                user["verification_token"]
+            )
+        )
 
-        return {"message": "User registered successfully"}
+        return {
+            "message": "Registration successful! Please check your email to verify your account."
+        }
 
     except ValidationError as e:
-        # Handle validation errors - show actual validation message
         error_msg = str(e.errors()[0]["msg"]) if e.errors() else "Validation error"
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail={"error": error_msg}
@@ -89,13 +107,72 @@ async def signup(signup_data: SignupRequest):
     except HTTPException:
         raise
     except Exception as e:
-        # Log the actual error for debugging
         import logging
-
         logging.error(f"Signup error: {str(e)}", exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": str(e) if str(e) else "All fields are required"},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": "Registration failed. Please try again."},
+        )
+
+
+@router.get("/verify-email", response_model=MessageResponse)
+async def verify_email(token: str):
+    """
+    Verify user's email address using token from email link
+    
+    Process:
+    1. Validates token exists and is not expired
+    2. Checks if email is already verified
+    3. Marks user as verified
+    4. Deletes token and expiry (single-use token)
+    
+    Query params:
+    - token: Verification token from email link
+    
+    Returns:
+    - Success message if verification successful
+    - Error if token invalid, expired, or already used
+    """
+    try:
+        if not token:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "Verification token is required"}
+            )
+        
+        # Verify token and update user
+        result = await verify_email_token(token)
+        
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": "Invalid verification token"}
+            )
+        
+        if isinstance(result, dict) and "error" in result:
+            if result["error"] == "expired":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={"error": "Verification link has expired. Please request a new verification email."}
+                )
+            elif result["error"] == "already_verified":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={"error": "Email is already verified. You can now log in."}
+                )
+        
+        return {
+            "message": "Email verified successfully! You can now log in to your account."
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        import logging
+        logging.error(f"Email verification error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": "Email verification failed. Please try again."}
         )
 
 
@@ -139,6 +216,13 @@ async def login(login_data: LoginRequest, request: Request):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"error": f"Role mismatch. You are registered as a {user['role']}."},
+        )
+    
+    # Check email verification (only for users registered via /register endpoint)
+    if "is_verified" in user and not user["is_verified"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": "Email not verified. Please check your inbox and verify your email address."},
         )
 
     # Create JWT token

@@ -57,6 +57,34 @@ async def send_welcome_email(email: str, username: str):
     await send_email(email, subject, html_body)
 
 
+async def send_verification_email(email: str, username: str, verification_token: str):
+    """Send email verification link to user"""
+    verification_link = f"{settings.FRONTEND_URL}/verify?token={verification_token}"
+    
+    subject = "Verify Your Email - FacialDerma AI"
+    html_body = f"""
+    <html>
+        <body>
+            <h2>Welcome to FacialDerma AI, {username}!</h2>
+            <p>Thank you for registering. Please verify your email address to activate your account.</p>
+            <br>
+            <p><strong>Click the link below to verify your email:</strong></p>
+            <p><a href="{verification_link}" style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px;">Verify Email</a></p>
+            <br>
+            <p>Or copy and paste this link into your browser:</p>
+            <p style="word-break: break-all; color: #666;">{verification_link}</p>
+            <br>
+            <p><small>This link will expire in {settings.VERIFICATION_TOKEN_EXPIRY_MINUTES} minutes.</small></p>
+            <br>
+            <p>If you didn't create an account, please ignore this email.</p>
+            <br>
+            <p>Best regards,<br>The FacialDerma AI Team</p>
+        </body>
+    </html>
+    """
+    await send_email(email, subject, html_body)
+
+
 async def send_login_notification_email(email: str, username: str, ip_address: str):
     """Send login notification email with IP address"""
     subject = "New Login to Your FacialDerma AI Account"

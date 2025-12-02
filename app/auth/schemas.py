@@ -91,4 +91,9 @@ class ResetPasswordRequest(BaseModel):
         return v
 
 
+class VerifyEmailRequest(BaseModel):
+    """Request schema for email verification"""
+    token: str
+
+
 # User Profile Schemas

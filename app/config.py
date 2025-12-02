@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SKIP_EMAIL: bool = False  # Set to True to skip email and log OTP to console
     
+    # Email verification
+    FRONTEND_URL: str = "http://localhost:3000"  # Frontend URL for verification links
+    VERIFICATION_TOKEN_EXPIRY_MINUTES: int = 15  # Token expiry time in minutes
+    
     # Cloudinary configuration
     CLOUDINARY_CLOUD_NAME: str
     CLOUDINARY_API_KEY: str
