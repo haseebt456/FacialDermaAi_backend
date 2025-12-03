@@ -14,6 +14,7 @@ class PredictionResponse(BaseModel):
     predicted_label: str
     confidence_score: float
     image_url: str
+    report_id: str
 
 
 class PredictionDocument(BaseModel):
@@ -22,6 +23,7 @@ class PredictionDocument(BaseModel):
     userId: str
     result: PredictionResult
     imageUrl: str
+    reportId: str
     createdAt: datetime
     
     class Config:

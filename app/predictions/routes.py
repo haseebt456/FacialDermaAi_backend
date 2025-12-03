@@ -32,6 +32,7 @@ async def get_predictions(current_user: dict = Depends(get_current_user)):
             userId=str(pred["userId"]),
             result=PredictionResult(**pred["result"]),
             imageUrl=pred["imageUrl"],
+            reportId=pred.get("reportId", ""),
             createdAt=pred["createdAt"]
         ))
     
@@ -93,7 +94,7 @@ async def predict(
             )
         # Save prediction to database
         user_id = str(current_user["_id"])
-        await create_prediction(
+        prediction_doc = await create_prediction(
             user_id=user_id,
             predicted_label=prediction_result["predicted_label"],
             confidence_score=prediction_result["confidence_score"],
@@ -102,11 +103,12 @@ async def predict(
         
         logger.info(f"Prediction saved: {prediction_result['predicted_label']} ({prediction_result['confidence_score']})")
         
-        # Return response
+        # Return response with report_id
         return PredictionResponse(
             predicted_label=prediction_result["predicted_label"],
             confidence_score=prediction_result["confidence_score"],
-            image_url=image_url
+            image_url=image_url,
+            report_id=prediction_doc["reportId"]
         )
         
     except HTTPException:

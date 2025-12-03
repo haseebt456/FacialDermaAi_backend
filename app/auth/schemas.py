@@ -34,7 +34,7 @@ class LoginRequest(BaseModel):
 
     emailOrUsername: str
     password: str
-    role: Literal["patient", "dermatologist"]
+    role: Optional[Literal["patient", "dermatologist"]] = None
 
 
 class UserResponse(BaseModel):

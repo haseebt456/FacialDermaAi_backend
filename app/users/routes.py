@@ -17,6 +17,19 @@ from datetime import datetime
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
+@router.get("/check-username")
+async def check_username(username: str = Query(..., min_length=2, max_length=50)):
+    """
+    Check if a username is available.
+
+    Returns:
+        { "available": true } when no existing user has this username (case-insensitive)
+        { "available": false } when taken
+    """
+    collection = get_users_collection()
+    existing = await collection.find_one({"username": {"$regex": f"^{username}$", "$options": "i"}})
+    return {"available": existing is None}
+
 
 # commented by Asad
 # @router.get("/me", response_model=UserMeResponse)

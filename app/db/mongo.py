@@ -59,6 +59,12 @@ def get_notifications_collection():
     return db["notifications"]
 
 
+def get_counters_collection():
+    """Get counters collection for global counters"""
+    db = get_database()
+    return db["counters"]
+
+
 async def ensure_indexes():
     """
     Create indexes for all collections to optimize queries and enforce constraints.
