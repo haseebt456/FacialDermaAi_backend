@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 import os
 import logging
 import warnings
-
+from app.map.routes import router as map_router
 from app.config import settings
 from app.db.mongo import connect_to_mongo, close_mongo_connection, ensure_indexes
 from app.ml.pytorch_loader import load_model
@@ -97,8 +97,7 @@ app.include_router(users_router)
 app.include_router(predictions_router)
 app.include_router(review_requests_router)
 app.include_router(notifications_router)
-
-
+app.include_router(map_router)
 
 @app.get("/", response_class=PlainTextResponse)
 async def health_check():

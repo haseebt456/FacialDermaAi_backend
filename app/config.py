@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     CLOUDINARY_API_KEY: str
     CLOUDINARY_API_SECRET: str
     
+    # Google Maps API
+    GOOGLE_MAPS_API_KEY: str
+    
     # JWT configuration
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_DAYS: int = 7  # Extended to 7 days for better UX
