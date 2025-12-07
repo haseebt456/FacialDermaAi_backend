@@ -65,6 +65,12 @@ def get_counters_collection():
     return db["counters"]
 
 
+def get_dermatologist_verifications_collection():
+    """Get dermatologist_verifications collection"""
+    db = get_database()
+    return db["dermatologist_verifications"]
+
+
 async def ensure_indexes():
     """
     Create indexes for all collections to optimize queries and enforce constraints.

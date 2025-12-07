@@ -89,7 +89,30 @@ async def signup(signup_data: SignupRequest):
             username=signup_data.username,
             email=signup_data.email,
             password=signup_data.password,
+            license=signup_data.license,
         )
+
+        # If dermatologist, create verification request automatically
+        if signup_data.role == "dermatologist":
+            from app.db.mongo import get_dermatologist_verifications_collection
+            verifications = get_dermatologist_verifications_collection()
+            
+            verification_doc = {
+                "dermatologistId": str(user["_id"]),
+                "status": "pending",
+                "license": signup_data.license,
+                "specialization": None,
+                "clinic": None,
+                "experience": None,
+                "bio": None,
+                "submittedAt": datetime.utcnow(),
+                "createdAt": datetime.utcnow(),
+            }
+            
+            await verifications.insert_one(verification_doc)
+            
+            # TODO: Send notification to admin about new dermatologist registration
+            # You can implement email notification to admin here
 
         # Send verification email asynchronously
         asyncio.create_task(
@@ -98,9 +121,11 @@ async def signup(signup_data: SignupRequest):
             )
         )
 
-        return {
-            "message": "Registration successful! Please check your email to verify your account."
-        }
+        message = "Registration successful! Please check your email to verify your account."
+        if signup_data.role == "dermatologist":
+            message = "Registration successful! Please verify your email. Your dermatologist account will be activated after admin approval."
+        
+        return {"message": message}
 
     except ValidationError as e:
         error_msg = str(e.errors()[0]["msg"]) if e.errors() else "Validation error"
@@ -167,9 +192,12 @@ async def verify_email(token: str):
                     detail={"error": "Email is already verified. You can now log in."},
                 )
 
-        return {
-            "message": "Email verified successfully! You can now log in to your account."
-        }
+        # Check if user is a dermatologist
+        message = "Email verified successfully! You can now log in to your account."
+        if result and result.get("role") == "dermatologist":
+            message = "Email verified successfully! Your account is pending admin approval. You will be notified once approved."
+        
+        return {"message": message}
 
     except HTTPException:
         raise
@@ -225,8 +253,30 @@ async def login(login_data: LoginRequest, request: Request):
             detail={"error": f"Role mismatch. You are registered as a {user['role']}."},
         )
 
-    # Check email verification (only for users registered via /register endpoint)
+    # Check email verification and dermatologist verification status
     if "is_verified" in user and not user["is_verified"]:
+        # Check if dermatologist with pending verification
+        if user["role"] == "dermatologist":
+            # Check if verification request exists
+            from app.db.mongo import get_dermatologist_verifications_collection
+            verifications = get_dermatologist_verifications_collection()
+            verification = await verifications.find_one({"dermatologistId": str(user["_id"])})
+            
+            if verification and verification.get("status") == "pending":
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail={
+                        "error": "Your dermatologist verification is pending admin approval. Please wait for approval."
+                    },
+                )
+            elif verification and verification.get("status") == "rejected":
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail={
+                        "error": f"Your dermatologist verification was rejected. Reason: {verification.get('reviewComments', 'No reason provided')}"
+                    },
+                )
+        
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={

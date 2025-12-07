@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, EmailStr, field_validator
+from pydantic import BaseModel, Field, EmailStr, field_validator, model_validator
 from typing import Literal, Optional, List
 from datetime import datetime
 import re
@@ -11,6 +11,7 @@ class SignupRequest(BaseModel):
     username: str
     email: EmailStr
     password: str
+    license: Optional[str] = None  # License number for dermatologists
 
     @field_validator("username")
     @classmethod
@@ -27,6 +28,26 @@ class SignupRequest(BaseModel):
         if not v:
             raise ValueError("Password is required")
         return v
+    
+    @field_validator("license")
+    @classmethod
+    def validate_license(cls, v: Optional[str], info) -> Optional[str]:
+        # Check if role is dermatologist and license is required
+        if info.data.get("role") == "dermatologist" and not v:
+            raise ValueError("License number is required for dermatologists")
+        if v:
+            v = v.strip()
+            if not v:
+                raise ValueError("License number cannot be empty")
+        return v
+    
+    @model_validator(mode='after')
+    def validate_dermatologist_fields(self):
+        """Ensure dermatologists provide license number"""
+        if self.role == "dermatologist":
+            if not self.license or not self.license.strip():
+                raise ValueError("License number is mandatory for dermatologist registration")
+        return self
 
 
 class LoginRequest(BaseModel):
@@ -34,7 +55,7 @@ class LoginRequest(BaseModel):
 
     emailOrUsername: str
     password: str
-    role: Optional[Literal["patient", "dermatologist"]] = None
+    role: Optional[Literal["patient", "dermatologist", "admin"]] = None
 
 
 class UserResponse(BaseModel):
