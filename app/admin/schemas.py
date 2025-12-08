@@ -6,13 +6,19 @@ from datetime import datetime
 class DermatologistVerificationResponse(BaseModel):
     id: str
     dermatologistId: str
-    documentUrl: str
+    documentUrl: Optional[str] = None
     status: str
     submittedAt: datetime
-    name: Optional[str]
-    email: Optional[str]
-    username: Optional[str]
+    name: Optional[str] = None
+    email: Optional[str] = None
+    username: Optional[str] = None
+    license: Optional[str] = None
+    specialization: Optional[str] = None
+    clinic: Optional[str] = None
+    experience: Optional[int] = None
+    bio: Optional[str] = None
     reviewComments: Optional[str] = None
+    createdAt: Optional[datetime] = None
 
 class DermatologistVerificationRequest(BaseModel):
     status: str

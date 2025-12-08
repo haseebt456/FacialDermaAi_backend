@@ -50,11 +50,13 @@ async def verify_dermatologist_service(dermatologist_id, data, current_admin):
     users = get_users_collection()
 
     update_data = {
-        "status": data.status,
-        "reviewedBy": current_admin["id"],
+        "status": data.get("status"),
+        "reviewedBy": str(current_admin.get("_id", current_admin.get("id", ""))),
         "reviewedAt": datetime.utcnow(),
-        "reviewComments": data.reviewComments
     }
+    
+    if data.get("reviewComments"):
+        update_data["reviewComments"] = data.get("reviewComments")
 
     result = await verifications.update_one(
         {"dermatologistId": dermatologist_id, "status": "pending"},
@@ -67,18 +69,18 @@ async def verify_dermatologist_service(dermatologist_id, data, current_admin):
     user_obj = ObjectId(dermatologist_id)
 
     # Update user verification field
-    if data.status == "approved":
+    if data.get("status") == "approved":
         await users.update_one(
             {"_id": user_obj},
             {"$set": {"isVerified": True, "verifiedAt": datetime.utcnow()}}
         )
-    elif data.status == "rejected":
+    elif data.get("status") == "rejected":
         await users.update_one(
             {"_id": user_obj},
             {"$set": {"isVerified": False}}
         )
 
-    return {"message": f"Dermatologist {data.status}"}
+    return {"message": f"Dermatologist {data.get('status')}"}
 
 # ================= Get All Users ===============================
 async def get_all_users_service(skip, limit, role):
