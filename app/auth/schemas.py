@@ -65,7 +65,8 @@ class UserResponse(BaseModel):
     username: str
     email: str
     role: str
-    name: Optional[str] = None  # ADD THIS
+    name: Optional[str] = None
+    isSuspended: Optional[bool] = False
 
 
 class LoginResponse(BaseModel):

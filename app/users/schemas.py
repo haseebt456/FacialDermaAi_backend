@@ -21,6 +21,7 @@ class UserMeResponse(BaseModel):
     username: str
     email: str
     role: str
+    isSuspended: Optional[bool] = None
     
     name: Optional[str] = None
     

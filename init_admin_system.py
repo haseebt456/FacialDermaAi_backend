@@ -29,7 +29,7 @@ async def init_admin_system():
     users_collection = db["users"]
 
     # Check if admin already exists
-    existing_admin = await users_collection.find_one({"email": "admin@facialderma.com"})
+    existing_admin = await users_collection.find_one({"email": "admin@facialdermaai.com"})
     if existing_admin:
         print("✓ Admin user already exists")
     else:
@@ -52,8 +52,8 @@ async def init_admin_system():
 
         result = await users_collection.insert_one(admin_data)
         print(f"✓ Created admin user with ID: {result.inserted_id}")
-        print("   Email: admin@facialderma.com")
-        print("   Password: admin123 (CHANGE THIS IN PRODUCTION!)")
+        print("   Email: admin@facialdermaai.com")
+        print("   Password: Admin@123 (CHANGE THIS IN PRODUCTION!)")
 
     await close_mongo_connection()
     print("✓ Admin system initialization complete")

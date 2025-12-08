@@ -253,6 +253,12 @@ async def login(login_data: LoginRequest, request: Request):
             detail={"error": f"Role mismatch. You are registered as a {user['role']}."},
         )
 
+    # Check if user is suspended
+    if user.get("isSuspended", False):
+        # Allow login but return suspension status in response
+        # The frontend will handle showing the suspension screen
+        pass
+    
     # Check email verification and dermatologist verification status
     if "is_verified" in user and not user["is_verified"]:
         # Check if dermatologist with pending verification
@@ -303,6 +309,7 @@ async def login(login_data: LoginRequest, request: Request):
         email=user["email"],
         role=user["role"],
         name=user.get("name"),
+        isSuspended=user.get("isSuspended", False),
     )
 
     return LoginResponse(token=token, user=user_response)
