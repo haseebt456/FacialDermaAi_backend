@@ -70,6 +70,7 @@ async def get_me(current_user: dict = Depends(get_current_user_allow_suspended))
         email=user["email"],
         role=user["role"],
         isSuspended=user.get("isSuspended", False),
+        isVerified=user.get("is_verified", False),
         name=user.get("name"),
         gender=user.get("gender"),
         age=user.get("age"),

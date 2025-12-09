@@ -140,6 +140,11 @@ async def get_all_users_service(skip, limit, role):
         u.pop("verification_token", None)
         u.pop("token_expiry", None)
         u.pop("emailLower", None)
+        
+        # Transform field names to match frontend expectations
+        if "is_verified" in u:
+            u["isVerified"] = u.pop("is_verified")
+        
         cleaned.append(u)
 
     return {"users": cleaned, "total": len(cleaned)}
