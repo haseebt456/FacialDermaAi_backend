@@ -59,7 +59,7 @@ async def send_welcome_email(email: str, username: str):
 
 async def send_verification_email(email: str, username: str, verification_token: str):
     """Send email verification link to user"""
-    verification_link = f"{settings.FRONTEND_URL}/verify?token={verification_token}"
+    verification_link = f"{settings.FRONTEND_URL}/verify-email?token={verification_token}"
     
     subject = "Verify Your Email - FacialDerma AI"
     html_body = f"""
