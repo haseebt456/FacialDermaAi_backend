@@ -9,7 +9,7 @@ from app.users.schemas import (
     UpdateProfileRequest,
     ChangePasswordRequest,
 )
-from app.deps.auth import get_current_user
+from app.deps.auth import get_current_user, get_current_user_allow_suspended
 from app.db.mongo import get_users_collection
 from app.auth.service import verify_password, hash_password
 from datetime import datetime
@@ -50,12 +50,13 @@ async def check_username(username: str = Query(..., min_length=2, max_length=50)
 
 # Added by Asad
 @router.get("/me", response_model=UserMeResponse)
-async def get_me(current_user: dict = Depends(get_current_user)):
+async def get_me(current_user: dict = Depends(get_current_user_allow_suspended)):
     """
-    Get current authenticated user's complete profile
+    Get current authenticated user's complete profile.
+    This endpoint works even for suspended users to allow the frontend to show suspension screen.
 
     Requires: Bearer token in Authorization header
-    Returns: Complete user profile
+    Returns: Complete user profile including suspension status
     """
     collection = get_users_collection()
     user = await collection.find_one({"_id": current_user["_id"]})
@@ -68,6 +69,7 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         username=user["username"],
         email=user["email"],
         role=user["role"],
+        isSuspended=user.get("isSuspended", False),
         name=user.get("name"),
         gender=user.get("gender"),
         age=user.get("age"),
@@ -124,6 +126,14 @@ async def update_me(
     if profile.specialization is not None:
         update_data["specialization"] = profile.specialization
     if profile.license is not None:
+        # Check if license is unique among dermatologists
+        existing = await collection.find_one({
+            "role": "dermatologist",
+            "license": profile.license,
+            "_id": {"$ne": current_user["_id"]}
+        })
+        if existing:
+            raise HTTPException(status_code=400, detail="License number already exists")
         update_data["license"] = profile.license
     if profile.clinic is not None:
         update_data["clinic"] = profile.clinic

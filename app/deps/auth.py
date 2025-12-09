@@ -13,6 +13,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     Raises:
     - 401 if no token provided
     - 401 if token is invalid
+    - 403 if user is suspended
     - 404 if user not found
     """
     token = credentials.credentials
@@ -46,6 +47,59 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             detail={"error": "User not found"}
         )
     
+    # Check if user is suspended
+    if user.get("isSuspended", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been suspended. Please contact support for assistance."
+        )
+    
+    return user
+
+
+async def get_current_user_allow_suspended(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """
+    Dependency to get the current authenticated user from JWT token.
+    Unlike get_current_user, this does NOT check suspension status.
+    Use this only for endpoints that need to return user data even if suspended (e.g., /users/me).
+    
+    Raises:
+    - 401 if no token provided
+    - 401 if token is invalid
+    - 404 if user not found
+    """
+    token = credentials.credentials
+    
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error": "No token, authorization denied"}
+        )
+    
+    # Decode token
+    payload = decode_token(token)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error": "Token is not valid"}
+        )
+    
+    # Get user
+    user_id = payload.get("id")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error": "Token is not valid"}
+        )
+    
+    user = await get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "User not found"}
+        )
+    
+    # NOTE: We deliberately do NOT check suspension status here
     return user
 
 

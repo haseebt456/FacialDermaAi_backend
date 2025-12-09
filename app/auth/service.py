@@ -76,7 +76,7 @@ async def get_user_by_id(user_id: str):
         return None
 
 
-async def create_user(role: str, name: Optional[str], username: str, email: str, password: str):
+async def create_user(role: str, name: Optional[str], username: str, email: str, password: str, license: Optional[str] = None):
     """Create a new user in the database with email verification"""
     users = get_users_collection()
     
@@ -100,6 +100,10 @@ async def create_user(role: str, name: Optional[str], username: str, email: str,
     
     if name:
         user_doc["name"] = name
+    
+    # Add license field for dermatologists
+    if role == "dermatologist" and license:
+        user_doc["license"] = license
     
     result = await users.insert_one(user_doc)
     user_doc["_id"] = result.inserted_id

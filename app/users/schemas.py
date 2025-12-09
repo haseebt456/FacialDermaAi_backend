@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from datetime import datetime
 
 #imported by Asad
-from typing import Optional
+from typing import Optional, List
 
 # class UserMeResponse(BaseModel):
 #     """Response for GET /api/users/me"""
@@ -21,6 +21,7 @@ class UserMeResponse(BaseModel):
     username: str
     email: str
     role: str
+    isSuspended: Optional[bool] = None
     
     name: Optional[str] = None
     
@@ -89,3 +90,37 @@ class ChangePasswordRequest(BaseModel):
     """Request to change user password"""
     currentPassword: str
     newPassword: str
+
+# Admin schemas
+class DermatologistVerificationResponse(BaseModel):
+    """Response for dermatologist verification details"""
+    id: str
+    dermatologistId: str
+    status: str
+    name: Optional[str] = None  # User's full name
+    email: Optional[str] = None  # User's email
+    username: Optional[str] = None  # User's username
+    license: Optional[str] = None
+    specialization: Optional[str] = None
+    clinic: Optional[str] = None
+    experience: Optional[int] = None
+    bio: Optional[str] = None
+    submittedAt: Optional[datetime] = None
+    reviewedBy: Optional[str] = None
+    reviewedAt: Optional[datetime] = None
+    reviewComments: Optional[str] = None
+    createdAt: Optional[datetime] = None
+
+class AdminDashboardStats(BaseModel):
+    """Response for admin dashboard statistics"""
+    totalUsers: int
+    totalPatients: int
+    totalDermatologists: int
+    pendingVerifications: int
+    totalPredictions: int
+    totalReviewRequests: int
+
+class DermatologistVerificationRequest(BaseModel):
+    """Request to approve or reject dermatologist verification"""
+    status: str  # "approved" or "rejected"
+    reviewComments: Optional[str] = None
