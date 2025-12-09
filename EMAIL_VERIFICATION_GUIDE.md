@@ -92,7 +92,7 @@ class Settings(BaseSettings):
 
 ### 1. Register User (New Endpoint)
 
-**Endpoint:** `POST /api/auth/register`
+**Endpoint:** `POST /api/auth/signup`
 
 **Request Body:**
 ```json
