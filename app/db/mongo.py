@@ -71,6 +71,12 @@ def get_dermatologist_verifications_collection():
     return db["dermatologist_verifications"]
 
 
+def get_activity_logs_collection():
+    """Get activity_logs collection"""
+    db = get_database()
+    return db["activity_logs"]
+
+
 async def ensure_indexes():
     """
     Create indexes for all collections to optimize queries and enforce constraints.
@@ -130,6 +136,11 @@ async def ensure_indexes():
         notifications = get_notifications_collection()
         await notifications.create_index([("userId", 1), ("isRead", 1), ("createdAt", -1)])
         logger.info("Created indexes on notifications collection")
+        
+        # Activity logs collection indexes
+        activity_logs = get_activity_logs_collection()
+        await activity_logs.create_index([("adminId", 1), ("timestamp", -1)])
+        logger.info("Created indexes on activity_logs collection")
         
         logger.info("All database indexes created successfully")
     except Exception as e:

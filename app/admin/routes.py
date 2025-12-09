@@ -352,7 +352,8 @@ from .controller import (
     unsuspend_user_controller,
     delete_user_controller,
     update_profile_controller,
-    change_password_controller
+    change_password_controller,
+    get_activity_logs_controller
 )
 from .schemas import DermatologistVerificationRequest, AdminDashboardStats, DermatologistVerificationResponse
 
@@ -367,3 +368,4 @@ router.post("/users/{user_id}/unsuspend")(unsuspend_user_controller)
 router.delete("/users/{user_id}")(delete_user_controller)
 router.put("/profile")(update_profile_controller)
 router.post("/change-password")(change_password_controller)
+router.get("/activity-logs")(get_activity_logs_controller)

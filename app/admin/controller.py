@@ -13,7 +13,8 @@ from .service import (
     unsuspend_user_service,
     delete_user_service,
     update_admin_profile_service,
-    change_password_service
+    change_password_service,
+    get_admin_activity_logs_service
 )
 
 async def dashboard_stats_controller(current_admin=Depends(get_current_admin_user)):
@@ -44,19 +45,19 @@ async def suspend_user_controller(
     user_id: str,
     current_admin=Depends(get_current_admin_user)
 ):
-    return await suspend_user_service(user_id)
+    return await suspend_user_service(user_id, current_admin)
 
 async def unsuspend_user_controller(
     user_id: str,
     current_admin=Depends(get_current_admin_user)
 ):
-    return await unsuspend_user_service(user_id)
+    return await unsuspend_user_service(user_id, current_admin)
 
 async def delete_user_controller(
     user_id: str,
     current_admin=Depends(get_current_admin_user)
 ):
-    return await delete_user_service(user_id)
+    return await delete_user_service(user_id, current_admin)
 
 async def update_profile_controller(
     data: dict,
@@ -69,3 +70,10 @@ async def change_password_controller(
     current_admin=Depends(get_current_admin_user)
 ):
     return await change_password_service(current_admin, data)
+
+async def get_activity_logs_controller(
+    skip: int = 0,
+    limit: int = 50,
+    current_admin=Depends(get_current_admin_user)
+):
+    return await get_admin_activity_logs_service(skip, limit)

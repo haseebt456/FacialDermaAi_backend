@@ -11,6 +11,7 @@ from .mongo import (
     get_predictions_collection,
     get_review_requests_collection,
     get_notifications_collection,
+    get_activity_logs_collection,
 )
 
 __all__ = [
@@ -21,4 +22,5 @@ __all__ = [
     "get_predictions_collection",
     "get_review_requests_collection",
     "get_notifications_collection",
+    "get_activity_logs_collection",
 ]

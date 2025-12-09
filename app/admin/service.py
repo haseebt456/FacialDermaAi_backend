@@ -6,7 +6,8 @@ from app.db.mongo import (
     get_users_collection,
     get_dermatologist_verifications_collection,
     get_predictions_collection,
-    get_review_requests_collection
+    get_review_requests_collection,
+    get_activity_logs_collection
 )
 
 # ===================== Dashboard Stats ========================
@@ -124,6 +125,7 @@ async def verify_dermatologist_service(dermatologist_id, data, current_admin):
                 {"$set": {"isVerified": False}}
             )
 
+    await log_admin_activity(str(current_admin.get("_id", current_admin.get("id", ""))), f"Verified dermatologist {data.get('status')}", {"dermatologistId": dermatologist_id, "status": data.get("status"), "comments": data.get("reviewComments")})
     return {"message": f"Dermatologist {data.get('status')}"}
 # ================= Get All Users ===============================
 async def get_all_users_service(skip, limit, role):
@@ -162,9 +164,25 @@ async def suspend_user_service(user_id):
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
 
+    await log_admin_activity(str(current_admin["_id"]), "Suspended user", {"userId": user_id})
     return {"message": "User suspended successfully"}
 
-async def unsuspend_user_service(user_id):
+async def suspend_user_service(user_id, current_admin):
+    users = get_users_collection()
+    obj = ObjectId(user_id)
+
+    result = await users.update_one(
+        {"_id": obj},
+        {"$set": {"isSuspended": True, "suspendedAt": datetime.utcnow()}}
+    )
+
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    await log_admin_activity(str(current_admin["_id"]), "Suspended user", {"userId": user_id})
+    return {"message": "User suspended successfully"}
+
+async def unsuspend_user_service(user_id, current_admin):
     users = get_users_collection()
     obj = ObjectId(user_id)
 
@@ -176,9 +194,10 @@ async def unsuspend_user_service(user_id):
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
 
+    await log_admin_activity(str(current_admin["_id"]), "Unsuspended user", {"userId": user_id})
     return {"message": "User unsuspended successfully"}
 
-async def delete_user_service(user_id):
+async def delete_user_service(user_id, current_admin):
     users = get_users_collection()
     verifications = get_dermatologist_verifications_collection()
     obj = ObjectId(user_id)
@@ -191,6 +210,7 @@ async def delete_user_service(user_id):
     # Also delete any associated verification requests
     await verifications.delete_many({"dermatologistId": user_id})
 
+    await log_admin_activity(str(current_admin["_id"]), "Deleted user", {"userId": user_id})
     return {"message": "User deleted successfully"}
 
 # ================= Update Profile =============================
@@ -205,6 +225,7 @@ async def update_admin_profile_service(current_admin, data):
         {"$set": allowed}
     )
 
+    await log_admin_activity(str(current_admin["_id"]), "Updated profile", allowed)
     return {"message": "Admin profile updated successfully"}
 
 # ================= Change Password ============================
@@ -227,4 +248,37 @@ async def change_password_service(current_admin, data):
         {"$set": {"password": hashed, "updatedAt": datetime.utcnow()}}
     )
 
+    await log_admin_activity(str(current_admin["_id"]), "Changed password")
     return {"message": "Password changed successfully"}
+
+# ================= Activity Logging ============================
+async def log_admin_activity(admin_id, action, details=None):
+    activity_logs = get_activity_logs_collection()
+    log_entry = {
+        "adminId": admin_id,
+        "action": action,
+        "details": details or {},
+        "timestamp": datetime.utcnow()
+    }
+    await activity_logs.insert_one(log_entry)
+
+async def get_admin_activity_logs_service(skip=0, limit=50):
+    activity_logs = get_activity_logs_collection()
+    users = get_users_collection()
+    
+    logs = await activity_logs.find({}).sort("timestamp", -1).skip(skip).limit(limit).to_list(length=None)
+    
+    for log in logs:
+        log["id"] = str(log["_id"])
+        del log["_id"]
+        
+        if "adminId" in log:
+            admin = await users.find_one({"_id": ObjectId(log["adminId"])})
+            if admin:
+                log["adminName"] = admin.get("name") or admin.get("username")
+                log["adminEmail"] = admin.get("email")
+        else:
+            log["adminName"] = "Unknown"
+            log["adminEmail"] = "N/A"
+    
+    return logs
