@@ -270,36 +270,44 @@ async def login(login_data: LoginRequest, request: Request):
         # The frontend will handle showing the suspension screen
         pass
     
-    # Check email verification and dermatologist verification status
-    if "is_verified" in user and not user["is_verified"]:
-        # Check if dermatologist with pending verification
-        if user["role"] == "dermatologist":
-            # Check if verification request exists
-            from app.db.mongo import get_dermatologist_verifications_collection
-            verifications = get_dermatologist_verifications_collection()
-            verification = await verifications.find_one({"dermatologistId": str(user["_id"])})
-            
-            if verification and verification.get("status") == "pending":
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail={
-                        "error": "Your dermatologist verification is pending admin approval. Please wait for approval."
-                    },
-                )
-            elif verification and verification.get("status") == "rejected":
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail={
-                        "error": f"Your dermatologist verification was rejected. Reason: {verification.get('reviewComments', 'No reason provided')}"
-                    },
-                )
-        
+    # Step 1: Check email verification (applies to all users)
+    if not user.get("is_verified", False):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={
                 "error": "Email not verified. Please check your inbox and verify your email address."
             },
         )
+    
+    # Step 2: For dermatologists, check admin approval status
+    if user["role"] == "dermatologist":
+        from app.db.mongo import get_dermatologist_verifications_collection
+        verifications = get_dermatologist_verifications_collection()
+        verification = await verifications.find_one({"dermatologistId": str(user["_id"])})
+        
+        if not verification:
+            # No verification record found - shouldn't happen but handle gracefully
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error": "Dermatologist verification record not found. Please contact support."
+                },
+            )
+        
+        if verification.get("status") == "pending":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error": "Your account is pending admin approval. You will be notified once approved."
+                },
+            )
+        elif verification.get("status") == "rejected":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error": f"Your dermatologist verification was rejected. Reason: {verification.get('reviewComments', 'No reason provided')}"
+                },
+            )
 
     # Create JWT token
     token_data = {"id": str(user["_id"]), "role": user["role"]}
