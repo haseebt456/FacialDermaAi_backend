@@ -98,17 +98,19 @@ async def predict(
             user_id=user_id,
             predicted_label=prediction_result["predicted_label"],
             confidence_score=prediction_result["confidence_score"],
-            image_url=image_url
+            image_url=image_url,
+            all_probabilities=prediction_result["all_probabilities"]
         )
         
         logger.info(f"Prediction saved: {prediction_result['predicted_label']} ({prediction_result['confidence_score']})")
         
-        # Return response with report_id
+        # Return response with report_id and all probabilities for graphical representation
         return PredictionResponse(
             predicted_label=prediction_result["predicted_label"],
             confidence_score=prediction_result["confidence_score"],
             image_url=image_url,
-            report_id=prediction_doc["reportId"]
+            report_id=prediction_doc["reportId"],
+            all_probabilities=prediction_result["all_probabilities"]
         )
         
     except HTTPException:

@@ -4,42 +4,6 @@ from datetime import datetime
 from typing import List, Dict
 
 
-async def create_prediction(
-    user_id: str,
-    predicted_label: str,
-    confidence_score: float,
-    image_url: str
-) -> dict:
-    """
-    Create a new prediction document in database
-    
-    Args:
-        user_id: User's ObjectId as string
-        predicted_label: Predicted condition label
-        confidence_score: Confidence score (0-1)
-        image_url: Full URL to uploaded image
-        
-    Returns:
-        Created prediction document
-    """
-    predictions = get_predictions_collection()
-    
-    prediction_doc = {
-        "userId": ObjectId(user_id),
-        "result": {
-            "predicted_label": predicted_label,
-            "confidence_score": confidence_score
-        },
-        "imageUrl": image_url,
-        "createdAt": datetime.utcnow()
-    }
-    
-    result = await predictions.insert_one(prediction_doc)
-    prediction_doc["_id"] = result.inserted_id
-    
-    return prediction_doc
-
-
 async def get_user_predictions(user_id: str) -> List[dict]:
     """
     Get all predictions for a user, sorted by createdAt descending
@@ -120,7 +84,8 @@ async def create_prediction(
     user_id: str,
     predicted_label: str,
     confidence_score: float,
-    image_url: str
+    image_url: str,
+    all_probabilities: dict = None
 ) -> dict:
     """
     Create a new prediction document in database with unique report ID
@@ -130,6 +95,7 @@ async def create_prediction(
         predicted_label: Predicted condition label
         confidence_score: Confidence score (0-1)
         image_url: Full URL to uploaded image
+        all_probabilities: Dictionary of all disease probabilities
         
     Returns:
         Created prediction document
@@ -139,12 +105,18 @@ async def create_prediction(
     # Generate unique report ID
     report_id = await get_next_report_id()
     
+    result_data = {
+        "predicted_label": predicted_label,
+        "confidence_score": confidence_score
+    }
+    
+    # Add probability data if provided
+    if all_probabilities:
+        result_data["all_probabilities"] = all_probabilities
+    
     prediction_doc = {
         "userId": ObjectId(user_id),
-        "result": {
-            "predicted_label": predicted_label,
-            "confidence_score": confidence_score
-        },
+        "result": result_data,
         "imageUrl": image_url,
         "reportId": report_id,
         "createdAt": datetime.utcnow()

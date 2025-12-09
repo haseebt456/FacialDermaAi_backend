@@ -1,12 +1,13 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Dict
+from typing import Dict, List, Optional
 
 
 class PredictionResult(BaseModel):
     """Prediction result embedded in Prediction document"""
     predicted_label: str
     confidence_score: float
+    all_probabilities: Optional[Dict[str, float]] = None
 
 
 class PredictionResponse(BaseModel):
@@ -15,6 +16,7 @@ class PredictionResponse(BaseModel):
     confidence_score: float
     image_url: str
     report_id: str
+    all_probabilities: Dict[str, float]
 
 
 class PredictionDocument(BaseModel):
