@@ -315,10 +315,13 @@ async def login(login_data: LoginRequest, request: Request):
 
     # Get client IP
     client_ip = get_client_ip(request)
+    
+    # Get user agent
+    user_agent = request.headers.get('User-Agent', 'Unknown')
 
     # Send login notification email asynchronously
     asyncio.create_task(
-        send_login_notification_email(user["email"], user["username"], client_ip)
+        send_login_notification_email(user["email"], user["username"], client_ip, user_agent)
     )
 
     # Return response

@@ -57,8 +57,60 @@ async def send_welcome_email(email: str, username: str):
     await send_email(email, subject, html_body)
 
 
-async def send_login_notification_email(email: str, username: str, ip_address: str):
-    """Send login notification email with IP address"""
+def parse_user_agent(user_agent: str) -> str:
+    """Parse User-Agent string to extract browser and device information"""
+    if not user_agent:
+        return "Unknown"
+    
+    ua = user_agent.lower()
+    
+    # Browser detection
+    browsers = {
+        'chrome': 'Chrome',
+        'firefox': 'Firefox',
+        'safari': 'Safari',
+        'edge': 'Edge',
+        'opera': 'Opera',
+        'brave': 'Brave'
+    }
+    
+    browser = "Unknown Browser"
+    for key, name in browsers.items():
+        if key in ua:
+            browser = name
+            break
+    
+    # OS detection
+    os_info = "Unknown OS"
+    if 'windows' in ua:
+        os_info = "Windows"
+    elif 'macintosh' in ua or 'mac os x' in ua:
+        os_info = "macOS"
+    elif 'linux' in ua:
+        os_info = "Linux"
+    elif 'android' in ua:
+        os_info = "Android"
+    elif 'iphone' in ua or 'ipad' in ua:
+        os_info = "iOS"
+    
+    # Device type
+    device = "Desktop"
+    if 'mobile' in ua or 'android' in ua or 'iphone' in ua:
+        device = "Mobile"
+    elif 'tablet' in ua or 'ipad' in ua:
+        device = "Tablet"
+    
+    return f"{browser} on {os_info} ({device})"
+
+
+async def send_login_notification_email(email: str, username: str, ip_address: str, user_agent: str = None):
+    """Send login notification email with IP address and browser/device info"""
+    
+    # Parse user agent for browser/device info
+    browser_info = "Unknown"
+    if user_agent:
+        browser_info = parse_user_agent(user_agent)
+    
     subject = "New Login to Your FacialDerma AI Account"
     html_body = f"""
     <html>
@@ -68,6 +120,7 @@ async def send_login_notification_email(email: str, username: str, ip_address: s
             <p>We detected a new login to your FacialDerma AI account.</p>
             <p><strong>IP Address:</strong> {ip_address}</p>
             <p><strong>Time:</strong> Just now</p>
+            <p><strong>Browser/Device:</strong> {browser_info}</p>
             <br>
             <p>If this wasn't you, please secure your account immediately.</p>
             <br>
