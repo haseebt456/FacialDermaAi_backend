@@ -345,6 +345,7 @@ from typing import Optional, List
 from .controller import (
     dashboard_stats_controller,
     pending_verifications_controller,
+    rejected_verifications_controller,
     verify_dermatologist_controller,
     get_users_controller,
     suspend_user_controller,
@@ -358,6 +359,7 @@ from .schemas import DermatologistVerificationRequest, AdminDashboardStats, Derm
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 router.get("/dashboard/stats", response_model=AdminDashboardStats)(dashboard_stats_controller)
 router.get("/dermatologists/pending", response_model=List[DermatologistVerificationResponse])(pending_verifications_controller)
+router.get("/dermatologists/rejected", response_model=List[DermatologistVerificationResponse])(rejected_verifications_controller)
 router.post("/dermatologists/{dermatologist_id}/verify")(verify_dermatologist_controller)
 router.get("/users")(get_users_controller)
 router.post("/users/{user_id}/suspend")(suspend_user_controller)

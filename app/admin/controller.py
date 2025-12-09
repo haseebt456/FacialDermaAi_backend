@@ -6,6 +6,7 @@ from .schemas import DermatologistVerificationRequest
 from .service import (
     get_admin_stats,
     get_pending_verifications_service,
+    get_rejected_verifications_service,
     verify_dermatologist_service,
     get_all_users_service,
     suspend_user_service,
@@ -20,6 +21,9 @@ async def dashboard_stats_controller(current_admin=Depends(get_current_admin_use
 
 async def pending_verifications_controller(current_admin=Depends(get_current_admin_user)):
     return await get_pending_verifications_service()
+
+async def rejected_verifications_controller(current_admin=Depends(get_current_admin_user)):
+    return await get_rejected_verifications_service()
 
 async def verify_dermatologist_controller(
     dermatologist_id: str,

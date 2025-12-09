@@ -126,6 +126,14 @@ async def update_me(
     if profile.specialization is not None:
         update_data["specialization"] = profile.specialization
     if profile.license is not None:
+        # Check if license is unique among dermatologists
+        existing = await collection.find_one({
+            "role": "dermatologist",
+            "license": profile.license,
+            "_id": {"$ne": current_user["_id"]}
+        })
+        if existing:
+            raise HTTPException(status_code=400, detail="License number already exists")
         update_data["license"] = profile.license
     if profile.clinic is not None:
         update_data["clinic"] = profile.clinic

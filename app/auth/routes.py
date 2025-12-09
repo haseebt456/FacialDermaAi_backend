@@ -26,6 +26,7 @@ from app.email.mailer import (
     send_otp_email,
     send_verification_email,
 )
+from app.db.mongo import get_users_collection
 import asyncio
 from pydantic import ValidationError
 import random
@@ -67,6 +68,7 @@ async def signup(signup_data: SignupRequest):
     Returns success message asking user to check email
     """
     try:
+        users = get_users_collection()
         # Check if user already exists
         existing_user = await get_user_by_email(signup_data.email)
         if existing_user:
@@ -81,6 +83,15 @@ async def signup(signup_data: SignupRequest):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={"error": "Username already taken"},
             )
+
+        # Check license uniqueness for dermatologists
+        if signup_data.role == "dermatologist":
+            existing_license = await users.find_one({"license": signup_data.license, "role": "dermatologist"})
+            if existing_license:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={"error": "License number already registered to another dermatologist"},
+                )
 
         # Create user with verification token
         user = await create_user(

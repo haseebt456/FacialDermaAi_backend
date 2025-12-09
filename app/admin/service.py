@@ -44,6 +44,27 @@ async def get_pending_verifications_service():
 
     return verifications
 
+async def get_rejected_verifications_service():
+    verifications_col = get_dermatologist_verifications_collection()
+    users = get_users_collection()
+
+    verifications = await verifications_col.find({"status": "rejected"}).to_list(length=None)
+
+    cleaned = []
+    for v in verifications:
+        v["id"] = str(v["_id"])
+        del v["_id"]
+
+        user = await users.find_one({"_id": ObjectId(v["dermatologistId"])})
+        if user:
+            v["name"] = user.get("name")
+            v["email"] = user.get("email")
+            v["username"] = user.get("username")
+            cleaned.append(v)
+        # If user not found, skip the verification (user was deleted)
+
+    return cleaned
+
 # ================= Approve/Reject Dermatologist ===============
 async def verify_dermatologist_service(dermatologist_id, data, current_admin):
     verifications = get_dermatologist_verifications_collection()
@@ -64,24 +85,46 @@ async def verify_dermatologist_service(dermatologist_id, data, current_admin):
     )
 
     if result.modified_count == 0:
-        raise HTTPException(status_code=404, detail="Pending verification not found")
-
-    user_obj = ObjectId(dermatologist_id)
-
-    # Update user verification field
-    if data.get("status") == "approved":
-        await users.update_one(
-            {"_id": user_obj},
-            {"$set": {"isVerified": True, "verifiedAt": datetime.utcnow()}}
-        )
-    elif data.get("status") == "rejected":
-        await users.update_one(
-            {"_id": user_obj},
-            {"$set": {"isVerified": False}}
-        )
+        # No pending verification found
+        if data.get('status') == "approved":
+            # Directly approve the user
+            await users.update_one(
+                {"_id": ObjectId(dermatologist_id)},
+                {"$set": {"isVerified": True, "verifiedAt": datetime.utcnow()}}
+            )
+            return {"message": "Dermatologist approved"}
+        elif data.get('status') == "rejected":
+            # Create a rejected verification document
+            verification_doc = {
+                "dermatologistId": dermatologist_id,
+                "status": "rejected",
+                "submittedAt": datetime.utcnow(),
+                "reviewedBy": str(current_admin.get("_id", current_admin.get("id", ""))),
+                "reviewedAt": datetime.utcnow(),
+                "reviewComments": data.get("reviewComments", ""),
+            }
+            await verifications.insert_one(verification_doc)
+            # Ensure user is not verified
+            await users.update_one(
+                {"_id": ObjectId(dermatologist_id)},
+                {"$set": {"isVerified": False}}
+            )
+            return {"message": "Dermatologist rejected"}
+    else:
+        # Existing pending verification updated
+        user_obj = ObjectId(dermatologist_id)
+        if data.get("status") == "approved":
+            await users.update_one(
+                {"_id": user_obj},
+                {"$set": {"isVerified": True, "verifiedAt": datetime.utcnow()}}
+            )
+        elif data.get("status") == "rejected":
+            await users.update_one(
+                {"_id": user_obj},
+                {"$set": {"isVerified": False}}
+            )
 
     return {"message": f"Dermatologist {data.get('status')}"}
-
 # ================= Get All Users ===============================
 async def get_all_users_service(skip, limit, role):
     users = get_users_collection()
@@ -132,12 +175,16 @@ async def unsuspend_user_service(user_id):
 
 async def delete_user_service(user_id):
     users = get_users_collection()
+    verifications = get_dermatologist_verifications_collection()
     obj = ObjectId(user_id)
 
     result = await users.delete_one({"_id": obj})
 
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
+
+    # Also delete any associated verification requests
+    await verifications.delete_many({"dermatologistId": user_id})
 
     return {"message": "User deleted successfully"}
 
