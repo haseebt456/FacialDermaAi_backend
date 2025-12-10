@@ -262,13 +262,30 @@ async def log_admin_activity(admin_id, action, details=None):
     }
     await activity_logs.insert_one(log_entry)
 
+async def log_user_activity(user_id, action, details=None):
+    activity_logs = get_activity_logs_collection()
+    log_entry = {
+        "userId": user_id,
+        "action": action,
+        "details": details or {},
+        "timestamp": datetime.utcnow()
+    }
+    await activity_logs.insert_one(log_entry)
+
 async def get_admin_activity_logs_service(skip=0, limit=50):
     activity_logs = get_activity_logs_collection()
     users = get_users_collection()
+    predictions = get_predictions_collection()
     
-    logs = await activity_logs.find({}).sort("timestamp", -1).skip(skip).limit(limit).to_list(length=None)
+    # Fetch all logs (admin and user)
+    all_logs = await activity_logs.find({}).sort("timestamp", -1).skip(skip).limit(limit * 2).to_list(length=None)  # Fetch more to combine
     
-    for log in logs:
+    # Fetch user predictions as additional activities
+    user_predictions = await predictions.find({}).sort("createdAt", -1).skip(skip).limit(limit).to_list(length=None)
+    
+    # Format logs
+    formatted_logs = []
+    for log in all_logs:
         log["id"] = str(log["_id"])
         del log["_id"]
         
@@ -277,8 +294,45 @@ async def get_admin_activity_logs_service(skip=0, limit=50):
             if admin:
                 log["adminName"] = admin.get("name") or admin.get("username")
                 log["adminEmail"] = admin.get("email")
-        else:
-            log["adminName"] = "Unknown"
-            log["adminEmail"] = "N/A"
+            else:
+                log["adminName"] = "Unknown"
+                log["adminEmail"] = "N/A"
+            log["userType"] = "Admin"
+            log["userName"] = log["adminName"]
+            log["userEmail"] = log["adminEmail"]
+        elif "userId" in log:
+            user = await users.find_one({"_id": ObjectId(log["userId"])})
+            if user:
+                log["userName"] = user.get("name") or user.get("username")
+                log["userEmail"] = user.get("email")
+            else:
+                log["userName"] = "Unknown"
+                log["userEmail"] = "N/A"
+            log["userType"] = "User"
+        formatted_logs.append(log)
     
-    return logs
+    # Format user predictions as logs
+    formatted_user_logs = []
+    for pred in user_predictions:
+        user = await users.find_one({"_id": ObjectId(pred["userId"])})
+        if user:
+            log_entry = {
+                "id": str(pred["_id"]),
+                "action": "Skin Analysis Prediction",
+                "details": {
+                    "prediction": pred.get("prediction", "N/A"),
+                    "confidence": pred.get("confidence", "N/A")
+                },
+                "timestamp": pred["createdAt"],
+                "userType": "User",
+                "userName": user.get("name") or user.get("username"),
+                "userEmail": user.get("email")
+            }
+            formatted_user_logs.append(log_entry)
+    
+    # Combine all
+    all_combined_logs = formatted_logs + formatted_user_logs
+    all_combined_logs.sort(key=lambda x: x["timestamp"], reverse=True)
+    
+    # Apply limit
+    return all_combined_logs[:limit]

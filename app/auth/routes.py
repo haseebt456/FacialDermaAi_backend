@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, status, Request
+from fastapi import APIRouter, HTTPException, status, Request, Depends
+from pydantic import ValidationError
 from app.auth.schemas import (
     SignupRequest,
     LoginRequest,
@@ -26,12 +27,13 @@ from app.email.mailer import (
     send_otp_email,
     send_verification_email,
 )
+from app.admin.service import log_user_activity
+from app.deps.auth import get_current_user
 from app.db.mongo import get_users_collection
 import asyncio
-from pydantic import ValidationError
+from datetime import datetime, timedelta
 import random
 import string
-from datetime import datetime, timedelta
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -102,6 +104,9 @@ async def signup(signup_data: SignupRequest):
             password=signup_data.password,
             license=signup_data.license,
         )
+
+        # Log user registration
+        await log_user_activity(str(user["_id"]), "User Registration", {"role": signup_data.role})
 
         # If dermatologist, create verification request automatically
         if signup_data.role == "dermatologist":
@@ -323,6 +328,9 @@ async def login(login_data: LoginRequest, request: Request):
     asyncio.create_task(
         send_login_notification_email(user["email"], user["username"], client_ip, user_agent)
     )
+
+    # Log user login
+    await log_user_activity(str(user["_id"]), "User Login", {"ip": client_ip, "userAgent": user_agent})
 
     # Return response
     user_response = UserResponse(
