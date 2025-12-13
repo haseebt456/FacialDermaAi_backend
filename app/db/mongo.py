@@ -77,6 +77,12 @@ def get_activity_logs_collection():
     return db["activity_logs"]
 
 
+def get_treatment_suggestions_collection():
+    """Get treatment_suggestions collection"""
+    db = get_database()
+    return db["treatment_suggestions"]
+
+
 async def ensure_indexes():
     """
     Create indexes for all collections to optimize queries and enforce constraints.
@@ -141,6 +147,11 @@ async def ensure_indexes():
         activity_logs = get_activity_logs_collection()
         await activity_logs.create_index([("adminId", 1), ("timestamp", -1)])
         logger.info("Created indexes on activity_logs collection")
+        
+        # Treatment suggestions collection indexes
+        treatment_suggestions = get_treatment_suggestions_collection()
+        await treatment_suggestions.create_index("name", unique=True)
+        logger.info("Created indexes on treatment_suggestions collection")
         
         logger.info("All database indexes created successfully")
     except Exception as e:
