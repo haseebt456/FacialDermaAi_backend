@@ -43,12 +43,14 @@ async def send_email(to_email: str, subject: str, html_body: str):
 async def send_welcome_email(email: str, username: str):
     """Send welcome email on user signup"""
     subject = "Welcome to FacialDerma AI!"
+    login_link = f"{settings.FRONTEND_URL}/login"
     html_body = f"""
     <html>
         <body>
             <h2>Welcome to FacialDerma AI, {username}!</h2>
             <p>Thank you for registering with us. We're excited to have you on board.</p>
             <p>You can now log in and start using our facial dermatology AI services.</p>
+            <p><a href="{login_link}" style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px; margin-top: 10px;">Click here to login</a></p>
             <br>
             <p>Best regards,<br>The FacialDerma AI Team</p>
         </body>
@@ -140,6 +142,7 @@ async def send_login_notification_email(email: str, username: str, ip_address: s
         browser_info = parse_user_agent(user_agent)
     
     subject = "New Login to Your FacialDerma AI Account"
+    profile_link = f"{settings.FRONTEND_URL}/Profile"
     html_body = f"""
     <html>
         <body>
@@ -151,6 +154,7 @@ async def send_login_notification_email(email: str, username: str, ip_address: s
             <p><strong>Browser/Device:</strong> {browser_info}</p>
             <br>
             <p>If this wasn't you, please secure your account immediately.</p>
+            <p><a href="{profile_link}" style="display: inline-block; padding: 10px 20px; background-color: #dc2626; color: white; text-decoration: none; border-radius: 5px; margin-top: 10px;">Review Account Security</a></p>
             <br>
             <p>Best regards,<br>The FacialDerma AI Team</p>
         </body>
@@ -163,10 +167,13 @@ async def send_review_request_email(
     dermatologist_email: str,
     dermatologist_name: str,
     patient_name: str,
-    prediction_id: str
+    prediction_id: str,
+    message: str = None
 ):
     """Send email notification to dermatologist when a review is requested"""
     subject = "New Review Request - FacialDerma AI"
+    dashboard_link = f"{settings.FRONTEND_URL}/Dermatologist"
+    message_html = f"<p><strong>Patient Message:</strong> {message}</p>" if message else ""
     html_body = f"""
     <html>
         <body>
@@ -174,8 +181,10 @@ async def send_review_request_email(
             <p>Hello Dr. {dermatologist_name},</p>
             <p>You have received a new review request from <strong>{patient_name}</strong>.</p>
             <p><strong>Prediction ID:</strong> {prediction_id}</p>
+            {message_html}
             <br>
             <p>Please log in to your dashboard to review the case and provide your expert feedback.</p>
+            <p><a href="{dashboard_link}" style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px; margin-top: 10px;">Click here to view the request</a></p>
             <br>
             <p>Best regards,<br>The FacialDerma AI Team</p>
         </body>
@@ -192,6 +201,7 @@ async def send_review_submitted_email(
 ):
     """Send email notification to patient when dermatologist submits a review"""
     subject = "Expert Review Added - FacialDerma AI"
+    profile_link = f"{settings.FRONTEND_URL}/Profile"
     html_body = f"""
     <html>
         <body>
@@ -201,6 +211,7 @@ async def send_review_submitted_email(
             <p><strong>Prediction ID:</strong> {prediction_id}</p>
             <br>
             <p>Please log in to your account to view the detailed feedback from our dermatologist.</p>
+            <p><a href="{profile_link}" style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px; margin-top: 10px;">View Review Details</a></p>
             <br>
             <p>Best regards,<br>The FacialDerma AI Team</p>
         </body>
@@ -218,6 +229,7 @@ async def send_review_rejected_email(
 ):
     """Send email notification to patient when dermatologist rejects a review request"""
     subject = "Review Request Rejected - FacialDerma AI"
+    profile_link = f"{settings.FRONTEND_URL}/dashboard"
     html_body = f"""
     <html>
         <body>
@@ -228,6 +240,7 @@ async def send_review_rejected_email(
             <p><strong>Reason:</strong> {reason}</p>
             <br>
             <p>You can request another dermatologist if needed.</p>
+            <p><a href="{dashboard_link}" style="display: inline-block; padding: 10px 20px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 5px; margin-top: 10px;">Request Another Dermatologist</a></p>
             <br>
             <p>Best regards,<br>The FacialDerma AI Team</p>
         </body>

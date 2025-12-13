@@ -35,6 +35,7 @@ def format_review_request(doc: dict) -> ReviewRequest:
         dermatologistId=str(doc["dermatologistId"]),
         status=doc["status"],
         comment=doc.get("comment"),
+        message=doc.get("message"),
         createdAt=doc["createdAt"],
         reviewedAt=doc.get("reviewedAt"),
         patientUsername=doc.get("patientUsername"),
@@ -98,7 +99,7 @@ async def create_request(
     
     # Create review request
     try:
-        doc = await create_review_request(prediction_id, patient_id, dermatologist_id)
+        doc = await create_review_request(prediction_id, patient_id, dermatologist_id, payload.message)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -127,7 +128,8 @@ async def create_request(
             dermatologist["email"],
             dermatologist["username"],
             current_user["username"],
-            str(prediction_id)
+            str(prediction_id),
+            payload.message
         )
     )
     

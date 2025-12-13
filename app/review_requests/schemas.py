@@ -7,6 +7,7 @@ class ReviewRequestCreate(BaseModel):
     """Schema for creating a review request"""
     predictionId: str = Field(..., min_length=24, max_length=24, description="MongoDB ObjectId of the prediction")
     dermatologistId: str = Field(..., min_length=24, max_length=24, description="MongoDB ObjectId of the dermatologist")
+    message: Optional[str] = Field(None, max_length=1000, description="Optional message from patient to dermatologist")
     
     @field_validator('predictionId', 'dermatologistId')
     @classmethod
@@ -34,6 +35,7 @@ class ReviewRequest(BaseModel):
     dermatologistId: str
     status: Literal["pending", "reviewed", "rejected"]
     comment: Optional[str] = None
+    message: Optional[str] = None
     createdAt: datetime
     reviewedAt: Optional[datetime] = None
     
