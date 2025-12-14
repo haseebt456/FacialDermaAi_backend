@@ -118,4 +118,9 @@ class VerifyEmailRequest(BaseModel):
     token: str
 
 
+class ResendVerificationRequest(BaseModel):
+    """Request schema for resending verification email"""
+    email: EmailStr
+
+
 # User Profile Schemas

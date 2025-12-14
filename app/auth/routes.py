@@ -11,7 +11,11 @@ from app.auth.schemas import (
     VerifyOTPRequest,
     ResetPasswordRequest,
     VerifyEmailRequest,
+    ResendVerificationRequest,
 )
+from datetime import datetime, timedelta
+from fastapi import APIRouter, Depends, HTTPException, status
+from app.db.mongo import get_users_collection
 from app.auth.service import (
     get_user_by_email,
     get_user_by_username,
@@ -36,6 +40,194 @@ import random
 import string
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+@router.post("/verify-email-otp", response_model=MessageResponse)
+async def verify_email_otp(request_data: VerifyOTPRequest):
+    """
+    Verify user's email using a 6-digit OTP code.
+
+    Process:
+    1. Validates email exists
+    2. Checks OTP matches and is not expired
+    3. Marks user as verified
+    4. Clears verification_token, token_expiry, email_otp, email_otp_expires
+    """
+    try:
+        users = get_users_collection()
+        email_lower = request_data.email.lower()
+
+        user = await users.find_one({"emailLower": email_lower})
+        if not user:
+            # Fallback to email field for older records
+            user = await users.find_one({"email": email_lower})
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": "No account found with this email address"})
+
+        # Rate-limit / lock check
+        lock_until = user.get("email_otp_lock_until")
+        if lock_until and lock_until > datetime.utcnow():
+            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail={"error": "Too many failed attempts. Try again later."})
+
+        # Validate OTP
+        if request_data.otp != user.get("email_otp"):
+            attempts = int(user.get("email_otp_attempts", 0)) + 1
+            update = {"$set": {"email_otp_attempts": attempts}}
+            # Lock after 5 failed attempts for 15 minutes
+            if attempts >= 5:
+                update["$set"]["email_otp_lock_until"] = datetime.utcnow() + timedelta(minutes=15)
+            await users.update_one({"_id": user["_id"]}, update)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"error": "Invalid OTP"})
+
+        # Check expiry
+        if user.get("email_otp_expires") and user["email_otp_expires"] < datetime.utcnow():
+            # Clear expired
+            await users.update_one({"_id": user["_id"]}, {"$unset": {"email_otp": "", "email_otp_expires": ""}, "$set": {"email_otp_attempts": 0}})
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"error": "OTP has expired. Please request a new one."})
+
+        # Success: mark verified and clear fields
+        await users.update_one(
+            {"_id": user["_id"]},
+            {
+                "$set": {"is_verified": True, "email_otp_attempts": 0},
+                "$unset": {"verification_token": "", "token_expiry": "", "email_otp": "", "email_otp_expires": "", "email_otp_lock_until": ""}
+            }
+        )
+
+        message = "Email verified successfully!"
+        if user.get("role") == "dermatologist":
+            message = "Email verified successfully! Your account is pending admin approval. You will be notified once approved."
+
+        return {"message": message}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import logging
+        logging.error(f"Email OTP verification error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Email OTP verification failed. Please try again."})
+
+
+@router.post("/verification/resend", response_model=MessageResponse)
+async def resend_verification_email(request_data: ResendVerificationRequest):
+    """
+    Resend verification email with new token and OTP.
+
+    Flow:
+    1. Email verification must be completed first
+    2. Then dermatologist admin approval (if applicable)
+
+    Rate limiting: Max 3 resends per 15 minutes per email.
+    """
+    try:
+        users = get_users_collection()
+        email_lower = request_data.email.lower()
+
+        # Find user
+        user = await users.find_one({"emailLower": email_lower})
+        if not user:
+            user = await users.find_one({"email": email_lower})
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": "No account found with this email address"}
+            )
+
+        # Check if already verified
+        if user.get("is_verified"):
+            # Check dermatologist approval status
+            if user.get("role") == "dermatologist":
+                if user.get("is_approved") == "pending":
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail={"error": "Email already verified. Your account is pending admin approval."}
+                    )
+                elif user.get("is_approved") == "rejected":
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail={"error": "Email already verified. Your dermatologist application was rejected."}
+                    )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "Email is already verified. You can log in."}
+            )
+
+        # Rate limiting: check resend attempts
+        resend_lock_until = user.get("resend_lock_until")
+        if resend_lock_until and resend_lock_until > datetime.utcnow():
+            remaining_mins = int((resend_lock_until - datetime.utcnow()).total_seconds() / 60) + 1
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={"error": f"Too many resend attempts. Please try again in {remaining_mins} minutes."}
+            )
+
+        resend_attempts = user.get("resend_attempts", 0)
+        last_resend = user.get("last_resend_at")
+
+        # Reset counter if last resend was more than 15 minutes ago
+        if last_resend and (datetime.utcnow() - last_resend).total_seconds() > 900:
+            resend_attempts = 0
+
+        # Check if max resends reached
+        if resend_attempts >= 3:
+            lock_until = datetime.utcnow() + timedelta(minutes=15)
+            await users.update_one(
+                {"_id": user["_id"]},
+                {"$set": {"resend_lock_until": lock_until}}
+            )
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={"error": "Too many resend attempts. Please try again in 15 minutes."}
+            )
+
+        # Generate new verification token
+        import secrets
+        new_token = secrets.token_urlsafe(32)
+        token_expiry = datetime.utcnow() + timedelta(minutes=15)
+
+        # Generate new 6-digit OTP
+        new_otp = ''.join(random.choices(string.digits, k=6))
+        otp_expiry = datetime.utcnow() + timedelta(minutes=10)
+
+        # Update user with new token and OTP
+        await users.update_one(
+            {"_id": user["_id"]},
+            {
+                "$set": {
+                    "verification_token": new_token,
+                    "token_expiry": token_expiry,
+                    "email_otp": new_otp,
+                    "email_otp_expires": otp_expiry,
+                    "email_otp_attempts": 0,
+                    "resend_attempts": resend_attempts + 1,
+                    "last_resend_at": datetime.utcnow(),
+                },
+                "$unset": {
+                    "email_otp_lock_until": "",
+                    "resend_lock_until": ""
+                }
+            }
+        )
+
+        # Send verification email
+        asyncio.create_task(
+            send_verification_email(
+                user["email"], user["username"], new_token, new_otp
+            )
+        )
+
+        remaining_attempts = 3 - (resend_attempts + 1)
+        message = f"Verification email sent! Please check your inbox. ({remaining_attempts} resend(s) remaining)"
+
+        return {"message": message}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import logging
+        logging.error(f"Resend verification error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": "Failed to resend verification email. Please try again."}
+        )
 
 
 def get_client_ip(request: Request) -> str:
@@ -133,7 +325,7 @@ async def signup(signup_data: SignupRequest):
         # Send verification email asynchronously
         asyncio.create_task(
             send_verification_email(
-                user["email"], user["username"], user["verification_token"]
+                user["email"], user["username"], user["verification_token"], user.get("email_otp")
             )
         )
 
