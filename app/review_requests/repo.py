@@ -10,7 +10,8 @@ logger = logging.getLogger(__name__)
 async def create_review_request(
     prediction_id: ObjectId,
     patient_id: ObjectId,
-    dermatologist_id: ObjectId
+    dermatologist_id: ObjectId,
+    message: Optional[str] = None
 ) -> dict:
     """
     Create a new review request.
@@ -35,6 +36,7 @@ async def create_review_request(
         "dermatologistId": dermatologist_id,
         "status": "pending",
         "comment": None,
+        "message": message,
         "createdAt": datetime.utcnow(),
         "reviewedAt": None
     }
