@@ -77,14 +77,18 @@ async def get_user_by_id(user_id: str):
 
 
 async def create_user(role: str, name: Optional[str], username: str, email: str, password: str, license: Optional[str] = None):
-    """Create a new user in the database with email verification"""
+    """Create a new user in the database with email verification (link + OTP)"""
     users = get_users_collection()
     
     email_lower = email.lower()
     
-    # Generate secure verification token
+    # Generate secure verification token (link-based)
     verification_token = secrets.token_urlsafe(32)
     token_expiry = datetime.utcnow() + timedelta(minutes=settings.VERIFICATION_TOKEN_EXPIRY_MINUTES)
+
+    # Generate 6-digit OTP for email verification (code-based)
+    otp_code = "".join(secrets.choice("0123456789") for _ in range(6))
+    otp_expiry = datetime.utcnow() + timedelta(minutes=max(10, settings.VERIFICATION_TOKEN_EXPIRY_MINUTES))
     
     user_doc = {
         "role": role,
@@ -95,6 +99,9 @@ async def create_user(role: str, name: Optional[str], username: str, email: str,
         "is_verified": False,
         "verification_token": verification_token,
         "token_expiry": token_expiry,
+        "email_otp": otp_code,
+        "email_otp_expires": otp_expiry,
+        "email_otp_attempts": 0,
         "createdAt": datetime.utcnow(),
     }
     
