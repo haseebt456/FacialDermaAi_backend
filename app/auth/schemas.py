@@ -12,6 +12,9 @@ class SignupRequest(BaseModel):
     email: EmailStr
     password: str
     license: Optional[str] = None  # License number for dermatologists
+    specialization: Optional[str] = None  # Medical specialization for dermatologists
+    clinic: Optional[str] = None  # Clinic name for dermatologists (optional)
+    experience: Optional[int] = None  # Years of experience for dermatologists
 
     @field_validator("username")
     @classmethod
@@ -41,12 +44,36 @@ class SignupRequest(BaseModel):
                 raise ValueError("License number cannot be empty")
         return v
     
+    @field_validator("specialization")
+    @classmethod
+    def validate_specialization(cls, v: Optional[str], info) -> Optional[str]:
+        if info.data.get("role") == "dermatologist" and not v:
+            raise ValueError("Specialization is required for dermatologists")
+        if v:
+            v = v.strip()
+            if not v:
+                raise ValueError("Specialization cannot be empty")
+        return v
+    
+    @field_validator("experience")
+    @classmethod
+    def validate_experience(cls, v: Optional[int], info) -> Optional[int]:
+        if info.data.get("role") == "dermatologist" and v is None:
+            raise ValueError("Years of experience is required for dermatologists")
+        if v is not None and v < 0:
+            raise ValueError("Experience cannot be negative")
+        return v
+    
     @model_validator(mode='after')
     def validate_dermatologist_fields(self):
-        """Ensure dermatologists provide license number"""
+        """Ensure dermatologists provide all required fields"""
         if self.role == "dermatologist":
             if not self.license or not self.license.strip():
                 raise ValueError("License number is mandatory for dermatologist registration")
+            if not self.specialization or not self.specialization.strip():
+                raise ValueError("Specialization is mandatory for dermatologist registration")
+            if self.experience is None:
+                raise ValueError("Years of experience is mandatory for dermatologist registration")
         return self
 
 

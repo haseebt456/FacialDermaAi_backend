@@ -61,7 +61,7 @@ async def send_welcome_email(email: str, username: str):
 
 async def send_verification_email(email: str, username: str, token: str, otp: str | None = None):
     """Send email verification link with optional OTP code"""
-    verify_link = f"{settings.FRONTEND_URL}/verify?token={token}"
+    verify_link = f"{settings.FRONTEND_URL}/verify-email?token={token}"
     subject = "Verify your FacialDerma AI account"
     otp_block = ""
     if otp:

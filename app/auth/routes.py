@@ -295,6 +295,9 @@ async def signup(signup_data: SignupRequest):
             email=signup_data.email,
             password=signup_data.password,
             license=signup_data.license,
+            specialization=signup_data.specialization,
+            clinic=signup_data.clinic,
+            experience=signup_data.experience,
         )
 
         # Log user registration
@@ -309,9 +312,9 @@ async def signup(signup_data: SignupRequest):
                 "dermatologistId": str(user["_id"]),
                 "status": "pending",
                 "license": signup_data.license,
-                "specialization": None,
-                "clinic": None,
-                "experience": None,
+                "specialization": signup_data.specialization,
+                "clinic": signup_data.clinic,
+                "experience": signup_data.experience,
                 "bio": None,
                 "submittedAt": datetime.utcnow(),
                 "createdAt": datetime.utcnow(),
