@@ -57,32 +57,28 @@ async def send_welcome_email(email: str, username: str):
     await send_email(email, subject, html_body)
 
 
-async def send_verification_email(email: str, username: str, verification_token: str):
-    """Send email verification link to user"""
-    verification_link = f"{settings.FRONTEND_URL}/verify-email?token={verification_token}"
-    
-    subject = "Verify Your Email - FacialDerma AI"
-    html_body = f"""
-    <html>
-        <body>
-            <h2>Welcome to FacialDerma AI, {username}!</h2>
-            <p>Thank you for registering. Please verify your email address to activate your account.</p>
-            <br>
-            <p><strong>Click the link below to verify your email:</strong></p>
-            <p><a href="{verification_link}" style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px;">Verify Email</a></p>
-            <br>
-            <p>Or copy and paste this link into your browser:</p>
-            <p style="word-break: break-all; color: #666;">{verification_link}</p>
-            <br>
-            <p><small>This link will expire in {settings.VERIFICATION_TOKEN_EXPIRY_MINUTES} minutes.</small></p>
-            <br>
-            <p>If you didn't create an account, please ignore this email.</p>
-            <br>
-            <p>Best regards,<br>The FacialDerma AI Team</p>
-        </body>
-    </html>
+async def send_verification_email(email: str, username: str, token: str, otp: str | None = None):
+    """Send email verification link with optional OTP code"""
+    verify_link = f"{settings.FRONTEND_URL}/verify?token={token}"
+    subject = "Verify your FacialDerma AI account"
+    otp_block = ""
+    if otp:
+        otp_block = f"""
+        <hr/>
+        <p>Or enter this One-Time Code in the app:</p>
+        <h3 style='letter-spacing:4px'>{otp}</h3>
+        <p>This code expires in {max(10, settings.VERIFICATION_TOKEN_EXPIRY_MINUTES)} minutes.</p>
+        """
+
+    html = f"""
+    <h2>Welcome to FacialDerma AI, {username}!</h2>
+    <p>Please verify your email by clicking the button below:</p>
+    <p><a href='{verify_link}' style='background:#4CAF50;color:#fff;padding:10px 16px;text-decoration:none;border-radius:6px;'>Verify Email</a></p>
+    <p>This link will expire in {settings.VERIFICATION_TOKEN_EXPIRY_MINUTES} minutes.</p>
+    <p>If the button doesn't work, copy this URL into your browser:<br/>{verify_link}</p>
+    {otp_block}
     """
-    await send_email(email, subject, html_body)
+    await send_email(email, subject, html)
 
 
 def parse_user_agent(user_agent: str) -> str:
