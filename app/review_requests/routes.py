@@ -20,6 +20,7 @@ from app.review_requests.repo import (
 from app.deps.auth import get_current_user, require_role
 from app.predictions.schemas import PredictionDocument, PredictionResult
 from app.auth.service import get_user_by_id
+from app.admin.service import log_user_activity
 
 logger = logging.getLogger(__name__)
 
@@ -344,6 +345,17 @@ async def add_review(
     
     logger.info(f"Review added to request {request_id} by {current_user['username']}")
     
+    # Log dermatologist activity
+    await log_user_activity(
+        str(current_user["_id"]),
+        "Review Submitted",
+        {
+            "requestId": str(request_id),
+            "predictionId": str(updated_doc["predictionId"]),
+            "patientId": str(patient_id)
+        }
+    )
+    
     return format_review_request(updated_doc)
 
 
@@ -417,6 +429,18 @@ async def reject_request(
         )
 
     logger.info(f"Review request {request_id} rejected by {current_user['username']}")
+
+    # Log dermatologist activity
+    await log_user_activity(
+        str(current_user["_id"]),
+        "Review Request Rejected",
+        {
+            "requestId": str(request_id),
+            "predictionId": str(updated_doc["predictionId"]),
+            "patientId": str(patient_id),
+            "reason": payload.comment
+        }
+    )
 
     return format_review_request(updated_doc)
 

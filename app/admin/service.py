@@ -125,7 +125,16 @@ async def verify_dermatologist_service(dermatologist_id, data, current_admin):
                 {"$set": {"isVerified": False}}
             )
 
-    await log_admin_activity(str(current_admin.get("_id", current_admin.get("id", ""))), f"Verified dermatologist {data.get('status')}", {"dermatologistId": dermatologist_id, "status": data.get("status"), "comments": data.get("reviewComments")})
+    # Get dermatologist email for logging
+    dermatologist = await users.find_one({"_id": ObjectId(dermatologist_id)}, {"email": 1})
+    dermatologist_email = dermatologist.get("email") if dermatologist else "Unknown"
+    
+    action_text = f"Dermatologist verification {data.get('status')}"
+    await log_admin_activity(
+        str(current_admin.get("_id", current_admin.get("id", ""))), 
+        action_text, 
+        {"dermatologistEmail": dermatologist_email}
+    )
     return {"message": f"Dermatologist {data.get('status')}"}
 # ================= Get All Users ===============================
 async def get_all_users_service(skip, limit, role):
@@ -305,10 +314,16 @@ async def get_admin_activity_logs_service(skip=0, limit=50):
             if user:
                 log["userName"] = user.get("name") or user.get("username")
                 log["userEmail"] = user.get("email")
+                # Determine user type based on role
+                user_role = user.get("role", "patient")
+                if user_role == "dermatologist":
+                    log["userType"] = "Dermatologist"
+                else:
+                    log["userType"] = "Patient"
             else:
                 log["userName"] = "Unknown"
                 log["userEmail"] = "N/A"
-            log["userType"] = "User"
+                log["userType"] = "User"
         formatted_logs.append(log)
     
     # Format user predictions as logs
