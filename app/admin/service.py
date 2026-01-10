@@ -9,6 +9,13 @@ from app.db.mongo import (
     get_review_requests_collection,
     get_activity_logs_collection
 )
+from app.email.mailer import (
+    send_dermatologist_approval_email,
+    send_dermatologist_rejection_email,
+    send_account_suspended_email,
+    send_account_unsuspended_email,
+    send_account_deleted_email
+)
 
 # ===================== Dashboard Stats ========================
 async def get_admin_stats():
@@ -85,6 +92,8 @@ async def verify_dermatologist_service(dermatologist_id, data, current_admin):
         {"$set": update_data}
     )
 
+    dermatologist_email = "Unknown"
+
     if result.modified_count == 0:
         # No pending verification found
         if data.get('status') == "approved":
@@ -93,6 +102,12 @@ async def verify_dermatologist_service(dermatologist_id, data, current_admin):
                 {"_id": ObjectId(dermatologist_id)},
                 {"$set": {"isVerified": True, "verifiedAt": datetime.utcnow()}}
             )
+            dermatologist = await users.find_one({"_id": ObjectId(dermatologist_id)}, {"email": 1, "name": 1, "username": 1})
+            if dermatologist:
+                await send_dermatologist_approval_email(
+                    dermatologist.get("email"),
+                    dermatologist.get("name") or dermatologist.get("username")
+                )
             return {"message": "Dermatologist approved"}
         elif data.get('status') == "rejected":
             # Create a rejected verification document
@@ -110,6 +125,13 @@ async def verify_dermatologist_service(dermatologist_id, data, current_admin):
                 {"_id": ObjectId(dermatologist_id)},
                 {"$set": {"isVerified": False}}
             )
+            dermatologist = await users.find_one({"_id": ObjectId(dermatologist_id)}, {"email": 1, "name": 1, "username": 1})
+            if dermatologist:
+                await send_dermatologist_rejection_email(
+                    dermatologist.get("email"),
+                    dermatologist.get("name") or dermatologist.get("username"),
+                    data.get("reviewComments", "Your account did not meet our verification requirements")
+                )
             return {"message": "Dermatologist rejected"}
     else:
         # Existing pending verification updated
@@ -125,9 +147,21 @@ async def verify_dermatologist_service(dermatologist_id, data, current_admin):
                 {"$set": {"isVerified": False}}
             )
 
-    # Get dermatologist email for logging
-    dermatologist = await users.find_one({"_id": ObjectId(dermatologist_id)}, {"email": 1})
-    dermatologist_email = dermatologist.get("email") if dermatologist else "Unknown"
+        # Fetch dermatologist for notification/logging
+        dermatologist = await users.find_one({"_id": user_obj}, {"email": 1, "name": 1, "username": 1})
+        dermatologist_email = dermatologist.get("email") if dermatologist else "Unknown"
+
+        if data.get("status") == "approved" and dermatologist:
+            await send_dermatologist_approval_email(
+                dermatologist.get("email"),
+                dermatologist.get("name") or dermatologist.get("username")
+            )
+        elif data.get("status") == "rejected" and dermatologist:
+            await send_dermatologist_rejection_email(
+                dermatologist.get("email"),
+                dermatologist.get("name") or dermatologist.get("username"),
+                data.get("reviewComments", "Your account did not meet our verification requirements")
+            )
     
     action_text = f"Dermatologist verification {data.get('status')}"
     await log_admin_activity(
@@ -161,25 +195,13 @@ async def get_all_users_service(skip, limit, role):
     return {"users": cleaned, "total": len(cleaned)}
 
 # ================= Suspend / Unsuspend / Delete ===============
-async def suspend_user_service(user_id):
-    users = get_users_collection()
-    obj = ObjectId(user_id)
-
-    result = await users.update_one(
-        {"_id": obj},
-        {"$set": {"isSuspended": True, "suspendedAt": datetime.utcnow()}}
-    )
-
-    if result.modified_count == 0:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    await log_admin_activity(str(current_admin["_id"]), "Suspended user", {"userId": user_id})
-    return {"message": "User suspended successfully"}
-
 async def suspend_user_service(user_id, current_admin):
     users = get_users_collection()
     obj = ObjectId(user_id)
 
+    # Fetch user before suspension to get email and name
+    user = await users.find_one({"_id": obj}, {"email": 1, "name": 1, "username": 1})
+    
     result = await users.update_one(
         {"_id": obj},
         {"$set": {"isSuspended": True, "suspendedAt": datetime.utcnow()}}
@@ -188,12 +210,22 @@ async def suspend_user_service(user_id, current_admin):
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
 
-    await log_admin_activity(str(current_admin["_id"]), "Suspended user", {"userId": user_id})
+    # Send suspension notification email
+    if user:
+        await send_account_suspended_email(
+            user.get("email"),
+            user.get("name") or user.get("username")
+        )
+
+    await log_admin_activity(str(current_admin.get("_id", current_admin.get("id", ""))), "Suspended user", {"userId": user_id})
     return {"message": "User suspended successfully"}
 
 async def unsuspend_user_service(user_id, current_admin):
     users = get_users_collection()
     obj = ObjectId(user_id)
+
+    # Fetch user before unsuspending to get email and name
+    user = await users.find_one({"_id": obj}, {"email": 1, "name": 1, "username": 1})
 
     result = await users.update_one(
         {"_id": obj},
@@ -203,7 +235,14 @@ async def unsuspend_user_service(user_id, current_admin):
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
 
-    await log_admin_activity(str(current_admin["_id"]), "Unsuspended user", {"userId": user_id})
+    # Send unsuspension notification email
+    if user:
+        await send_account_unsuspended_email(
+            user.get("email"),
+            user.get("name") or user.get("username")
+        )
+
+    await log_admin_activity(str(current_admin.get("_id", current_admin.get("id", ""))), "Unsuspended user", {"userId": user_id})
     return {"message": "User unsuspended successfully"}
 
 async def delete_user_service(user_id, current_admin):
@@ -211,10 +250,20 @@ async def delete_user_service(user_id, current_admin):
     verifications = get_dermatologist_verifications_collection()
     obj = ObjectId(user_id)
 
+    # Fetch user before deletion to get email and name
+    user = await users.find_one({"_id": obj}, {"email": 1, "name": 1, "username": 1})
+
     result = await users.delete_one({"_id": obj})
 
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
+
+    # Send deletion notification email
+    if user:
+        await send_account_deleted_email(
+            user.get("email"),
+            user.get("name") or user.get("username")
+        )
 
     # Also delete any associated verification requests
     await verifications.delete_many({"dermatologistId": user_id})

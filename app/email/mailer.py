@@ -245,6 +245,146 @@ async def send_review_rejected_email(
     await send_email(patient_email, subject, html_body)
 
 
+async def send_dermatologist_approval_email(
+    email: str,
+    name: str | None = None,
+    dashboard_path: str = "/Dermatologist"
+):
+    """Notify dermatologist that their account was approved by admin."""
+    if not email:
+        logger.error("Cannot send approval email: missing recipient email")
+        return
+
+    subject = "Your FacialDerma AI account has been approved"
+    display_name = name or "Doctor"
+    dashboard_link = f"{settings.FRONTEND_URL}{dashboard_path}"
+    html_body = f"""
+    <html>
+        <body>
+            <h2>Welcome aboard, {display_name}!</h2>
+            <p>Great news — your dermatologist account has been <strong>approved</strong> by our team.</p>
+            <p>You can now sign in and start reviewing cases.</p>
+            <p><a href="{dashboard_link}" style="display:inline-block;padding:10px 20px;background-color:#0f172a;color:white;text-decoration:none;border-radius:8px;">Go to your dashboard</a></p>
+            <p style="margin-top:14px;color:#4b5563;">If the button doesn't work, copy this URL into your browser:<br>{dashboard_link}</p>
+            <br>
+            <p>Thank you for joining FacialDerma AI.</p>
+            <p>— The FacialDerma AI Team</p>
+        </body>
+    </html>
+    """
+    await send_email(email, subject, html_body)
+
+
+async def send_dermatologist_rejection_email(
+    email: str,
+    name: str | None = None,
+    reason: str = "Your account did not meet our verification requirements"
+):
+    """Notify dermatologist that their account was rejected by admin."""
+    if not email:
+        logger.error("Cannot send rejection email: missing recipient email")
+        return
+
+    subject = "FacialDerma AI Account Application Status"
+    display_name = name or "Doctor"
+    support_link = f"{settings.FRONTEND_URL}/"
+    html_body = f"""
+    <html>
+        <body>
+            <h2>Account Application Update</h2>
+            <p>Hello {display_name},</p>
+            <p>Thank you for applying to join FacialDerma AI as a dermatologist. After careful review of your credentials, we regret to inform you that your application has not been approved at this time.</p>
+            <p><strong>Reason:</strong> {reason}</p>
+            <br>
+            <p>If you believe this is an error or would like to reapply, please contact our support team for more information.</p>
+            <p><a href="{support_link}" style="display:inline-block;padding:10px 20px;background-color:#2563eb;color:white;text-decoration:none;border-radius:8px;">Contact Support</a></p>
+            <p style="margin-top:14px;color:#4b5563;">We appreciate your interest in FacialDerma AI.</p>
+            <br>
+            <p>— The FacialDerma AI Team</p>
+        </body>
+    </html>
+    """
+    await send_email(email, subject, html_body)
+
+
+async def send_account_suspended_email(email: str, name: str | None = None):
+    """Notify user that their account has been suspended by admin."""
+    if not email:
+        logger.error("Cannot send suspension email: missing recipient email")
+        return
+
+    subject = "Your FacialDerma AI Account Has Been Suspended"
+    display_name = name or "User"
+    support_link = f"{settings.FRONTEND_URL}/"
+    html_body = f"""
+    <html>
+        <body>
+            <h2>Account Suspension Notice</h2>
+            <p>Hello {display_name},</p>
+            <p>Your FacialDerma AI account has been <strong>suspended</strong> by our administration team.</p>
+            <p>You will no longer be able to access your account or services.</p>
+            <br>
+            <p>If you believe this is an error or would like to appeal this decision, please contact our support team.</p>
+            <p><a href="{support_link}" style="display:inline-block;padding:10px 20px;background-color:#dc2626;color:white;text-decoration:none;border-radius:8px;">Contact Support</a></p>
+            <br>
+            <p>— The FacialDerma AI Team</p>
+        </body>
+    </html>
+    """
+    await send_email(email, subject, html_body)
+
+
+async def send_account_unsuspended_email(email: str, name: str | None = None):
+    """Notify user that their account has been unsuspended by admin."""
+    if not email:
+        logger.error("Cannot send unsuspension email: missing recipient email")
+        return
+
+    subject = "Your FacialDerma AI Account Has Been Restored"
+    display_name = name or "User"
+    login_link = f"{settings.FRONTEND_URL}/Login"
+    html_body = f"""
+    <html>
+        <body>
+            <h2>Account Restored</h2>
+            <p>Hello {display_name},</p>
+            <p>Good news! Your FacialDerma AI account suspension has been lifted and your account is now <strong>active</strong>.</p>
+            <p>You can now sign in and resume using all FacialDerma AI services.</p>
+            <p><a href="{login_link}" style="display:inline-block;padding:10px 20px;background-color:#0f172a;color:white;text-decoration:none;border-radius:8px;">Sign In</a></p>
+            <p style="margin-top:14px;color:#4b5563;">If you have any questions, please contact our support team.</p>
+            <br>
+            <p>— The FacialDerma AI Team</p>
+        </body>
+    </html>
+    """
+    await send_email(email, subject, html_body)
+
+
+async def send_account_deleted_email(email: str, name: str | None = None):
+    """Notify user that their account has been deleted by admin."""
+    if not email:
+        logger.error("Cannot send deletion email: missing recipient email")
+        return
+
+    subject = "Your FacialDerma AI Account Has Been Deleted"
+    display_name = name or "User"
+    html_body = f"""
+    <html>
+        <body>
+            <h2>Account Deletion Notice</h2>
+            <p>Hello {display_name},</p>
+            <p>Your FacialDerma AI account has been <strong>permanently deleted</strong> by our administration team.</p>
+            <p>All associated data has been removed from our systems. You will no longer be able to access any services.</p>
+            <br>
+            <p>If you believe this is an error or would like further information, please contact our support team immediately.</p>
+            <br>
+            <p>— The FacialDerma AI Team</p>
+        </body>
+    </html>
+    """
+    await send_email(email, subject, html_body)
+
+
 async def send_otp_email(email: str, username: str, otp: str):
     """Send OTP email for password reset"""
     
