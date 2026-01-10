@@ -261,7 +261,7 @@ async def send_dermatologist_approval_email(
     html_body = f"""
     <html>
         <body>
-            <h2>Welcome aboard, {display_name}!</h2>
+            <h2>Welcome, Mr. {display_name}!</h2>
             <p>Great news — your dermatologist account has been <strong>approved</strong> by our team.</p>
             <p>You can now sign in and start reviewing cases.</p>
             <p><a href="{dashboard_link}" style="display:inline-block;padding:10px 20px;background-color:#0f172a;color:white;text-decoration:none;border-radius:8px;">Go to your dashboard</a></p>
