@@ -287,7 +287,7 @@ async def send_dermatologist_rejection_email(
 
     subject = "FacialDerma AI Account Application Status"
     display_name = name or "Doctor"
-    support_link = f"{settings.FRONTEND_URL}/"
+    support_link = f"{settings.FRONTEND_URL}/contact-support"
     html_body = f"""
     <html>
         <body>
@@ -315,7 +315,7 @@ async def send_account_suspended_email(email: str, name: str | None = None):
 
     subject = "Your FacialDerma AI Account Has Been Suspended"
     display_name = name or "User"
-    support_link = f"{settings.FRONTEND_URL}/"
+    support_link = f"{settings.FRONTEND_URL}/contact-support"
     html_body = f"""
     <html>
         <body>
@@ -378,6 +378,68 @@ async def send_account_deleted_email(email: str, name: str | None = None):
             <br>
             <p>If you believe this is an error or would like further information, please contact our support team immediately.</p>
             <br>
+            <p>— The FacialDerma AI Team</p>
+        </body>
+    </html>
+    """
+    await send_email(email, subject, html_body)
+
+
+async def send_support_ticket_confirmation_email(email: str, name: str, subject_text: str, ticket_id: str):
+    """Send confirmation email when support ticket is submitted"""
+    if not email:
+        logger.error("Cannot send support confirmation email: missing recipient email")
+        return
+
+    subject = "Support Ticket Received - FacialDerma AI"
+    display_name = name or "User"
+    html_body = f"""
+    <html>
+        <body>
+            <h2>Support Ticket Received</h2>
+            <p>Hello {display_name},</p>
+            <p>We have received your support request and our team will review it shortly.</p>
+            <p><strong>Ticket ID:</strong> {ticket_id}</p>
+            <p><strong>Subject:</strong> {subject_text}</p>
+            <br>
+            <p>We aim to respond within 24-48 hours. You will receive an email notification when we respond.</p>
+            <p>Please keep your ticket ID for future reference.</p>
+            <br>
+            <p>Thank you for contacting FacialDerma AI.</p>
+            <p>— The FacialDerma AI Team</p>
+        </body>
+    </html>
+    """
+    await send_email(email, subject, html_body)
+
+
+async def send_support_ticket_response_email(email: str, name: str, subject_text: str, admin_response: str, ticket_id: str):
+    """Send email when admin responds to support ticket"""
+    if not email:
+        logger.error("Cannot send support response email: missing recipient email")
+        return
+
+    subject = f"Response to Your Support Ticket - {ticket_id}"
+    display_name = name or "User"
+    login_link = f"{settings.FRONTEND_URL}/contact-support"
+    html_body = f"""
+    <html>
+        <body>
+            <h2>Support Ticket Response</h2>
+            <p>Hello {display_name},</p>
+            <p>Our support team has responded to your ticket.</p>
+            <p><strong>Ticket ID:</strong> {ticket_id}</p>
+            <p><strong>Original Subject:</strong> {subject_text}</p>
+            <br>
+            <div style="background-color:#f3f4f6;padding:15px;border-left:4px solid #0f172a;margin:20px 0;">
+                <p style="margin:0;"><strong>Admin Response:</strong></p>
+                <p style="margin:10px 0 0 0;">{admin_response}</p>
+            </div>
+            <br>
+            <p>If you need further assistance, please reply to this ticket or create a new support request.</p>
+            <p><a href="{login_link}" style="display:inline-block;padding:10px 20px;background-color:#0f172a;color:white;text-decoration:none;border-radius:8px;">View Support Portal</a></p>
+            <br>
+            <p>Thank you for using FacialDerma AI.</p>
             <p>— The FacialDerma AI Team</p>
         </body>
     </html>

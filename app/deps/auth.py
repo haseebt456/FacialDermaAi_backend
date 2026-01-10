@@ -103,6 +103,32 @@ async def get_current_user_allow_suspended(credentials: HTTPAuthorizationCredent
     return user
 
 
+async def get_optional_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))):
+    """
+    Dependency to get the current authenticated user if token is provided, otherwise returns None.
+    Used for endpoints that work for both authenticated and anonymous users.
+    """
+    if not credentials:
+        return None
+    
+    token = credentials.credentials
+    if not token:
+        return None
+    
+    # Decode token
+    payload = decode_token(token)
+    if not payload:
+        return None
+    
+    # Get user
+    user_id = payload.get("id")
+    if not user_id:
+        return None
+    
+    user = await get_user_by_id(user_id)
+    return user
+
+
 def require_role(*allowed_roles: str) -> Callable:
     """
     Dependency factory to enforce role-based access control.
