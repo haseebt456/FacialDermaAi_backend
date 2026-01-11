@@ -18,6 +18,7 @@ from app.review_requests.routes import router as review_requests_router
 from app.notifications.routes import router as notifications_router
 from app.admin.routes import router as admin_router
 from app.treatment.routes import router as treatment_router
+from app.support.routes import router as support_router
 from app.cloudinary_helper import cloudinary
 import cloudinary.api
 
@@ -101,6 +102,7 @@ app.include_router(review_requests_router)
 app.include_router(notifications_router)
 app.include_router(admin_router)
 app.include_router(treatment_router)
+app.include_router(support_router)
 app.include_router(map_router)
 
 @app.get("/", response_class=PlainTextResponse)
