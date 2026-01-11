@@ -263,6 +263,7 @@ async def signup(signup_data: SignupRequest):
     """
     try:
         users = get_users_collection()
+        print("Signup data received:", signup_data)
         # Check if user already exists
         existing_user = await get_user_by_email(signup_data.email)
         if existing_user:
@@ -610,10 +611,16 @@ async def verify_otp(request_data: VerifyOTPRequest):
         from app.db.mongo import get_users_collection
 
         users_collection = get_users_collection()
+        email_lower = request_data.email.lower()
 
+        # Try emailLower first (indexed), fallback to email for older records
         user = await users_collection.find_one(
-            {"email": request_data.email.lower(), "resetOtp": request_data.otp}
+            {"emailLower": email_lower, "resetOtp": request_data.otp}
         )
+        if not user:
+            user = await users_collection.find_one(
+                {"email": email_lower, "resetOtp": request_data.otp}
+            )
 
         if not user:
             raise HTTPException(
@@ -663,10 +670,16 @@ async def reset_password(request_data: ResetPasswordRequest):
         from app.db.mongo import get_users_collection
 
         users_collection = get_users_collection()
+        email_lower = request_data.email.lower()
 
+        # Try emailLower first (indexed), fallback to email for older records
         user = await users_collection.find_one(
-            {"email": request_data.email.lower(), "resetOtp": request_data.otp}
+            {"emailLower": email_lower, "resetOtp": request_data.otp}
         )
+        if not user:
+            user = await users_collection.find_one(
+                {"email": email_lower, "resetOtp": request_data.otp}
+            )
 
         if not user:
             raise HTTPException(

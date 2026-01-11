@@ -167,9 +167,17 @@ async def update_user_password(email: str, new_password: str) -> bool:
     users = get_users_collection()
     email_lower = email.lower()
     
+    # Try emailLower first (indexed), fallback to email for older records
     result = await users.update_one(
         {"emailLower": email_lower},
         {"$set": {"password": hash_password(new_password)}}
     )
+    
+    # If no document was modified, try with email field for older records
+    if result.modified_count == 0:
+        result = await users.update_one(
+            {"email": email_lower},
+            {"$set": {"password": hash_password(new_password)}}
+        )
     
     return result.modified_count > 0
